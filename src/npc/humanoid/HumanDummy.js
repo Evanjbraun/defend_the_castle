@@ -167,6 +167,7 @@ export class HumanDummy extends NPCSchema {
             new THREE.CylinderGeometry(armWidth, armWidth, armLength, 10),
             bodyMaterial
         );
+        
         rightArm.position.set(-torsoWidth * 1, this.height * 0.5, 0);
         rightArm.rotation.z = -Math.PI * 0.1;
         rightArm.castShadow = true;
