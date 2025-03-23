@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PlayerSettings } from '../settings/PlayerSettings';
 
 export class PlayerCamera {
     constructor() {
@@ -7,6 +8,7 @@ export class PlayerCamera {
         this.mouseSensitivity = 0.002;
         this.isInitialized = false;
         this.eyeHeight = 1.6; // Fixed eye height above ground
+        this.game = null;
         
         // Map boundaries
         this.mapBounds = {
@@ -26,14 +28,27 @@ export class PlayerCamera {
         this.euler = new THREE.Euler(0, 0, 0, 'YXZ');
         this.velocity = new THREE.Vector3();
         this.direction = new THREE.Vector3();
+        
+        // Settings
+        this.settings = new PlayerSettings();
+        this.settingsListener = null;
     }
 
-    init(camera) {
+    init(camera, game) {
         this.camera = camera;
+        this.game = game;
         
         // Set initial camera position and rotation
         this.camera.position.set(0, this.eyeHeight, 0); // Eye height of 1.6 units
         this.camera.rotation.set(0, 0, 0);
+
+        // Update settings from PlayerSettings
+        this.updateFromSettings();
+        
+        // Listen for settings changes
+        this.settingsListener = this.settings.addListener((category, setting, value) => {
+            this.updateFromSettings();
+        });
 
         // Set up controls
         this.setupMouseControls();
@@ -41,21 +56,44 @@ export class PlayerCamera {
 
         this.isInitialized = true;
     }
+    
+    // Update camera settings from PlayerSettings
+    updateFromSettings() {
+        // Convert UI sensitivity (0.05-1.0) to camera sensitivity (0.0005-0.01)
+        this.mouseSensitivity = this.settings.getSetting('mouseSensitivity') * 0.01;
+        this.moveSpeed = this.settings.getSetting('movementSpeed');
+    }
 
     setupMouseControls() {
         // Lock pointer when clicking on the game window
         document.addEventListener('click', () => {
-            document.body.requestPointerLock();
+            // Only request pointer lock if game is not paused
+            if (this.game && !this.game.isPaused) {
+                document.body.requestPointerLock();
+            }
         });
 
         // Handle mouse movement
         document.addEventListener('mousemove', (event) => {
-            if (document.pointerLockElement === document.body) {
+            // Only process mouse movement if pointer is locked and game is not paused
+            if (document.pointerLockElement === document.body && (!this.game || !this.game.isPaused)) {
                 // Update camera rotation
                 this.euler.setFromQuaternion(this.camera.quaternion);
                 
-                this.euler.y -= event.movementX * this.mouseSensitivity;
-                this.euler.x -= event.movementY * this.mouseSensitivity;
+                let movementX = event.movementX;
+                let movementY = event.movementY;
+                
+                // Handle inverted controls if enabled
+                if (this.settings.getSetting('invertMouseX')) {
+                    movementX = -movementX;
+                }
+                
+                if (this.settings.getSetting('invertMouseY')) {
+                    movementY = -movementY;
+                }
+                
+                this.euler.y -= movementX * this.mouseSensitivity;
+                this.euler.x -= movementY * this.mouseSensitivity;
                 
                 // Limit vertical rotation (between looking straight down and straight up)
                 this.euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.euler.x));
@@ -68,17 +106,22 @@ export class PlayerCamera {
     setupKeyboardControls() {
         // Key down events
         document.addEventListener('keydown', (event) => {
+            // Don't process movement keys if game is paused
+            if (this.game && this.game.isPaused) return;
+            
+            const controls = this.settings.getSetting('controls');
+            
             switch (event.code) {
-                case 'KeyW':
+                case controls.moveForward:
                     this.moveForward = true;
                     break;
-                case 'KeyS':
+                case controls.moveBackward:
                     this.moveBackward = true;
                     break;
-                case 'KeyA':
+                case controls.moveLeft:
                     this.moveLeft = true;
                     break;
-                case 'KeyD':
+                case controls.moveRight:
                     this.moveRight = true;
                     break;
             }
@@ -86,17 +129,20 @@ export class PlayerCamera {
 
         // Key up events
         document.addEventListener('keyup', (event) => {
+            const controls = this.settings.getSetting('controls');
+            
+            // Always process key up events to avoid stuck keys
             switch (event.code) {
-                case 'KeyW':
+                case controls.moveForward:
                     this.moveForward = false;
                     break;
-                case 'KeyS':
+                case controls.moveBackward:
                     this.moveBackward = false;
                     break;
-                case 'KeyA':
+                case controls.moveLeft:
                     this.moveLeft = false;
                     break;
-                case 'KeyD':
+                case controls.moveRight:
                     this.moveRight = false;
                     break;
             }
@@ -120,6 +166,9 @@ export class PlayerCamera {
 
     update() {
         if (!this.isInitialized) return;
+        
+        // Don't update camera movement if game is paused
+        if (this.game && this.game.isPaused) return;
 
         // Calculate movement direction
         this.direction.z = Number(this.moveForward) - Number(this.moveBackward);
@@ -179,5 +228,21 @@ export class PlayerCamera {
             ...this.mapBounds,
             ...bounds
         };
+    }
+
+    // Reset position to origin
+    reset() {
+        if (this.camera) {
+            this.camera.position.set(0, this.eyeHeight, 0);
+            this.camera.rotation.set(0, 0, 0);
+            this.euler.set(0, 0, 0, 'YXZ');
+        }
+    }
+
+    // Clean up resources
+    dispose() {
+        if (this.settingsListener !== null) {
+            this.settings.removeListener(this.settingsListener);
+        }
     }
 }

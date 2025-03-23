@@ -1,13 +1,20 @@
+import { GameMenu } from './GameMenu';
+
 export class UIManager {
     constructor() {
         this.uiContainer = null;
         this.healthBar = null;
         this.waveInfo = null;
         this.scoreDisplay = null;
+        this.gameMenu = null;
         this.isInitialized = false;
+        this.game = null;
     }
 
-    init() {
+    init(game) {
+        // Store reference to game instance
+        this.game = game;
+        
         // Get UI container
         this.uiContainer = document.getElementById('ui-overlay');
 

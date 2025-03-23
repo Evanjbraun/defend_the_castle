@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Game } from './game/Game';
 import { UIManager } from './ui/UIManager';
+import './styles/index.css';
 
 class GameApplication {
     constructor() {
@@ -13,8 +14,8 @@ class GameApplication {
         // Initialize the game
         this.game.init();
         
-        // Initialize UI
-        this.uiManager.init();
+        // Initialize UI with game reference
+        this.uiManager.init(this.game);
         
         // Start the game loop
         this.animate();

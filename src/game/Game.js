@@ -6,6 +6,8 @@ import { PlayerCamera } from '../systems/camera/PlayerCamera';
 import { Crosshair } from '../ui/Crosshair';
 import { HumanDummy } from '../npc/humanoid/HumanDummy';
 import { WoodenSword } from '../items/weapons/WoodenSword';
+import { PlayerSettings } from '../systems/settings/PlayerSettings';
+import { GameMenu } from '../ui/GameMenu';
 
 export class Game {
     constructor() {
@@ -17,10 +19,16 @@ export class Game {
         this.playerCamera = null;
         this.crosshair = null;
         this.trainingDummy = null;
+        this.settings = null;
+        this.gameMenu = null;
         this.isInitialized = false;
+        this.isPaused = false;
     }
 
     init() {
+        // Initialize settings
+        this.settings = new PlayerSettings();
+        
         // Initialize Three.js scene
         this.scene = new Scene();
         this.scene.init();
@@ -46,7 +54,7 @@ export class Game {
 
         // Initialize player camera
         this.playerCamera = new PlayerCamera();
-        this.playerCamera.init(this.camera);
+        this.playerCamera.init(this.camera, this);
 
         // Initialize crosshair
         this.crosshair = new Crosshair({
@@ -85,15 +93,58 @@ export class Game {
         // Initialize wave manager
         this.waveManager = new WaveManager();
         this.waveManager.init();
+        
+        // Initialize game menu
+        this.gameMenu = new GameMenu(this);
+        this.gameMenu.init(this.settings);
 
         // Add event listeners
         window.addEventListener('resize', this.onWindowResize.bind(this));
+        
+        // Add escape key listener for pause menu
+        window.addEventListener('keydown', this.onKeyDown.bind(this));
 
         this.isInitialized = true;
     }
+    
+    onKeyDown(event) {
+        if (event.code === 'Escape') {
+            if (this.gameMenu.isVisible) {
+                // If we're in a submenu, go back to main menu
+                if (this.gameMenu.currentMenuSection !== 'main') {
+                    this.gameMenu.loadMainMenu();
+                } else {
+                    // If we're in main menu, close it completely
+                    this.resumeGame();
+                }
+            } else {
+                this.pauseGame();
+            }
+        }
+    }
+    
+    pauseGame() {
+        this.isPaused = true;
+        this.gameMenu.show();
+        
+        // Release pointer lock when paused
+        if (document.pointerLockElement) {
+            document.exitPointerLock();
+        }
+    }
+    
+    resumeGame() {
+        this.isPaused = false;
+        this.gameMenu.hide();
+        
+        // Acquire pointer lock when resumed
+        if (!document.pointerLockElement) {
+            document.body.requestPointerLock();
+        }
+    }
 
     update() {
-        if (!this.isInitialized) return;
+        if (!this.isInitialized || this.isPaused) return;
 
         const deltaTime = 0.016; // ~60fps
 
@@ -113,6 +164,11 @@ export class Game {
 
         // Render the scene
         this.renderer.render(this.scene.getScene(), this.camera);
+        
+        // Update menu if needed
+        if (this.gameMenu) {
+            this.gameMenu.update();
+        }
     }
 
     onWindowResize() {
