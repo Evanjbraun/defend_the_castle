@@ -49,4 +49,6 @@ export class Scene {
     remove(object) {
         this.scene.remove(object);
     }
+
+    
 } 
