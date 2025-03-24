@@ -12,10 +12,10 @@ export class PlayerCamera {
         
         // Map boundaries
         this.mapBounds = {
-            minX: -50,
-            maxX: 50,
-            minZ: -50,
-            maxZ: 50
+            minX: -100,
+            maxX: 100,
+            minZ: -100,
+            maxZ: 100
         };
         
         // Movement state

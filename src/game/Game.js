@@ -38,13 +38,15 @@ export class Game {
             75,
             window.innerWidth / window.innerHeight,
             0.1,
-            1000
+            2000
         );
 
         // Initialize renderer
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.shadowMap.enabled = true;
+        this.renderer.setClearColor(0x87CEEB, 1); // Set clear color to sky blue
+        this.renderer.sortObjects = true; // Ensure proper sorting for transparent objects
         document.getElementById('game-container').appendChild(this.renderer.domElement);
 
         // Initialize game components
@@ -161,7 +163,7 @@ export class Game {
 
     render() {
         if (!this.isInitialized) return;
-
+        
         // Render the scene
         this.renderer.render(this.scene.getScene(), this.camera);
         
