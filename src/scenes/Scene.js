@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CastleWalls } from '../entities/structures/CastleWalls.js';
 import { Ground } from '../entities/structures/Ground.js';
 import { Sky } from '../entities/environment/Sky.js';
-
+import { HumanDummy } from '../npc/humanoid/HumanDummy.js';
 /**
  * Main game scene
  */
@@ -36,7 +36,8 @@ export class Scene {
         
         // Create sky (must be first to be in the background)
         this._createSky();
-        
+
+
         // Setup lights
         this._setupLights();
         

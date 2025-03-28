@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { Scene } from '../scenes/Scene';
-import { WaveManager } from './WaveManager';
 import { Castle } from '../components/Castle';
 import { PlayerCamera } from '../systems/camera/PlayerCamera';
 import { Crosshair } from '../ui/Crosshair';
@@ -14,7 +13,13 @@ export class Game {
         this.scene = null;
         this.camera = null;
         this.renderer = null;
-        this.waveManager = null;
+        this.player = null;
+        this.npcs = [];
+        this.items = [];
+        this.controls = null;
+        this.clock = new THREE.Clock();
+        this.lastTime = 0;
+        this.deltaTime = 0;
         this.castle = null;
         this.playerCamera = null;
         this.crosshair = null;
@@ -82,8 +87,8 @@ export class Game {
         // Initialize training dummy
         this.trainingDummy = new HumanDummy();
         this.trainingDummy.init();
-        // Position the dummy 10 units away from the castle
-        this.trainingDummy.setPosition(10, 0, 10);
+        // Position the dummy in the middle of the scene
+        this.trainingDummy.setPosition(0, 0, 0);
         
         // Add the dummy to the scene
         if (this.trainingDummy.mesh) {
@@ -92,10 +97,6 @@ export class Game {
             this.scene.add(this.trainingDummy.mesh);
         }
 
-        // Initialize wave manager
-        this.waveManager = new WaveManager();
-        this.waveManager.init();
-        
         // Initialize game menu
         this.gameMenu = new GameMenu(this);
         this.gameMenu.init(this.settings);
@@ -151,7 +152,6 @@ export class Game {
         const deltaTime = 0.016; // ~60fps
 
         // Update game state
-        this.waveManager.update();
         this.castle.update();
         this.playerCamera.update();
         

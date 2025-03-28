@@ -1,8 +1,12 @@
 import * as THREE from 'three';
 import { NPCSchema } from '../NPCSchema';
+import { EquipmentSystem } from '../../equipment/EquipmentSystem';
+import { WoodenSword } from '../../items/weapons/WoodenSword';
+import { NPCUtility } from '../NPCUtility';
 
 export class HumanDummy extends NPCSchema {
     constructor(config = {}) {
+        console.log('=== HumanDummy: Initializing ===');
         super({
             id: 'npc_human_dummy',
             name: 'Training Dummy',
@@ -39,15 +43,54 @@ export class HumanDummy extends NPCSchema {
         this.isTrainingDummy = true;
         this.damageAbsorption = 0.2; // Reduces damage by 20%
         
+        // Custom item transformations for equipment
+        this.itemTransformations = {
+            RIGHT_HAND: {
+                position: { x: 0.4, y: -0.2, z: 0 },
+                rotation: { x: 0, y: 1.4, z: 1.5 }, // Adjust these values to change sword orientation
+                scale: { x: 0.3, y: 0.3, z: 0.3 }
+            },
+            LEFT_HAND: {
+                position: { x: 0, y: 0, z: 0 },
+                rotation: { x: 0, y: 0, z: Math.PI / 2 },
+                scale: { x: 0.2, y: 0.2, z: 0.2 }
+            }
+        };
+        
         // Animation properties
         this.animationState = 'IDLE';
         this.swayAmount = 0.02;
         this.swaySpeed = 1.5;
         this.swayTime = 0;
+
+        // Create the model first
+        this.mesh = this.createModel();
+        
+        // Initialize equipment system after model is created
+        console.log('HumanDummy: Creating equipment system');
+        this.equipment = new EquipmentSystem(this);
+
+        // Listen for equipment events
+        this.equipment.addEventListener('itemEquipped', (event) => NPCUtility.handleItemEquipped(event, this));
+        this.equipment.addEventListener('itemUnequipped', (event) => NPCUtility.handleItemUnequipped(event, this));
+
+
+        const woodenSword = new WoodenSword();
+
+        
+        // Create the 3D model for the sword
+        woodenSword.model = woodenSword.createModel();
+        console.log('HumanDummy: Sword model created:', woodenSword.model);
+        
+
+        this.equipment.equip(woodenSword, 'MAINHAND');
     }
+
+    
 
     // Override createModel to generate a human-like figure
     createModel() {
+        console.log('=== HumanDummy: Creating Model ===');
         const group = new THREE.Group();
 
         // Material for the dummy with full opacity
@@ -241,36 +284,22 @@ export class HumanDummy extends NPCSchema {
         // Center the model at its feet
         group.position.y = this.height * 0.5;
 
-        this.mesh = group;
+
+        console.log('HumanDummy: Creating attachment points');
+        this.attachmentPoints = NPCUtility.createAttachmentPoints(group, {
+            scale: 1.0, // Use default scale
+            positions: {
+                // Custom positions for the dummy if needed
+                RIGHT_HAND: { x: 0, y: .9, z: 0 },
+                LEFT_HAND: { x: -0.6, y: 1.2, z: 0 },
+                HEAD: { x: 0, y: 2.1, z: 0 },
+                CHEST: { x: 0, y: 1.5, z: 0.1 },
+                LEGS: { x: 0, y: 0.8, z: 0 },
+                FEET: { x: 0, y: 0.1, z: 0 }
+            }
+        });
+
         return group;
     }
 
-    // Override updateAnimation to add idle sway
-    updateAnimation(deltaTime) {
-        if (!this.mesh || this.state === 'DEAD') return;
-
-        this.swayTime += deltaTime * this.swaySpeed;
-        
-        // Gentle swaying motion when idle
-        if (this.state === 'IDLE') {
-            const sway = Math.sin(this.swayTime) * this.swayAmount;
-            this.mesh.rotation.z = sway;
-            
-        }
-    }
-
-    // Override takeDamage to include damage absorption
-    takeDamage(amount) {
-        const reducedDamage = amount * (1 - this.damageAbsorption);
-        return super.takeDamage(reducedDamage);
-    }
-
-    // Override die to handle dummy death
-    die() {
-        super.die();
-        if (this.mesh) {
-            // Fall over animation
-            this.mesh.rotation.x = Math.PI * 0.5;
-        }
-    }
 } 

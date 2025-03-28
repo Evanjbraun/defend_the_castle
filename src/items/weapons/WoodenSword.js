@@ -24,7 +24,8 @@ export class WoodenSword extends ItemSchema {
             maxStack: 1,
             weight: 2.0, // 2 kg
 
-            // Combat properties
+            // Equipment properties
+            isEquippable: true, // Set this to true
             equipSlot: 'MAINHAND',
 
             // Stats
