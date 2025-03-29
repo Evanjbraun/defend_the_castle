@@ -3,8 +3,6 @@ import * as THREE from 'three';
 export class EquipmentSystem extends THREE.EventDispatcher {
     constructor(owner) {
         super();
-        console.log('=== EquipmentSystem: Initializing ===');
-        console.log('Owner:', owner.name);
         
         // Reference to the NPC/character that owns this equipment
         this.owner = owner;
@@ -36,8 +34,6 @@ export class EquipmentSystem extends THREE.EventDispatcher {
 
         // Track equipped items for stat calculation
         this.equippedItems = new Map();
-
-        console.log('EquipmentSystem initialized with slots:', Object.keys(this.slots));
     }
 
     /**
@@ -56,42 +52,76 @@ export class EquipmentSystem extends THREE.EventDispatcher {
      * @returns {boolean} Whether the equip was successful
      */
     equip(item, slot) {
-        console.log('=== EquipmentSystem: Equipping Item ===');
-        console.log('Item:', item.name);
-        console.log('Slot:', slot);
-        
         if (!item || !item.isEquippable) {
-            console.warn('EquipmentSystem: Item is not equippable:', item);
             return false;
         }
         if (!(slot in this.slots)) {
-            console.warn('EquipmentSystem: Invalid slot:', slot);
             return false;
         }
 
         // Unequip existing item if any
         this.unequip(slot);
 
-        // Equip the new item
-        this.slots[slot] = item;
-        this.equippedItems.set(slot, item);
-        item.onEquip();
+        // If the item's model is a Promise, wait for it to resolve
+        if (item.model instanceof Promise) {
+            item.model.then(model => {
+                if (model instanceof THREE.Group) {
+                    item.model = model;
+                    this.equipItem(item, slot);
+                }
+            }).catch(error => {
+                // Use the fallback model if available
+                if (item.model instanceof THREE.Group) {
+                    this.equipItem(item, slot);
+                }
+            });
+        } else if (item.model instanceof THREE.Group) {
+            // If we already have a valid model, equip immediately
+            this.equipItem(item, slot);
+        } else {
+            return false;
+        }
 
-        // Apply item stats to owner
-        this.applyItemStats(item);
-
-        // Get the attachment point for this slot
-        const attachmentPoint = this.getAttachmentPoint(slot);
-
-        // Dispatch equipped event for visual handling
-        this.dispatchEvent({
-            type: 'itemEquipped',
-            slot: { slotType: attachmentPoint },
-            item: item
-        });
-
-        console.log('=== EquipmentSystem: Equip Complete ===');
         return true;
+    }
+
+    /**
+     * Internal method to handle the actual equipping of an item
+     * @private
+     * @param {ItemSchema} item - The item to equip
+     * @param {string} slot - The slot to equip to
+     */
+    equipItem(item, slot) {
+        // Store the item in the slot
+        this.slots[slot] = item;
+
+        // Create a clone of the model for the equipment slot
+        try {
+            const modelClone = item.model.clone();
+
+            // Get the attachment point for this slot
+            const attachmentPoint = this.getAttachmentPoint(slot);
+
+            // Get the transformation data from the owner if available
+            if (this.owner && this.owner.itemTransformations && this.owner.itemTransformations[attachmentPoint]) {
+                const transform = this.owner.itemTransformations[attachmentPoint];
+                modelClone.position.set(transform.position.x, transform.position.y, transform.position.z);
+                modelClone.rotation.set(transform.rotation.x, transform.rotation.y, transform.rotation.z);
+                modelClone.scale.set(transform.scale.x, transform.scale.y, transform.scale.z);
+            }
+
+            // Add the model to the player's mesh
+            if (this.owner && this.owner.mesh) {
+                this.owner.mesh.add(modelClone);
+            }
+
+            // Call the item's onEquip method
+            if (item.onEquip) {
+                item.onEquip();
+            }
+        } catch (error) {
+            // Handle any errors during equipping
+        }
     }
 
     /**
@@ -100,16 +130,10 @@ export class EquipmentSystem extends THREE.EventDispatcher {
      * @returns {ItemSchema|null} The unequipped item or null if slot was empty
      */
     unequip(slot) {
-        console.log('=== EquipmentSystem: Unequipping Item ===');
-        console.log('Slot:', slot);
-        
         const item = this.slots[slot];
         if (!item) {
-            console.log('EquipmentSystem: No item to unequip in slot:', slot);
             return null;
         }
-
-        console.log('EquipmentSystem: Unequipping item:', item.name);
 
         // Remove item stats from owner
         this.removeItemStats(item);
@@ -129,7 +153,6 @@ export class EquipmentSystem extends THREE.EventDispatcher {
         });
 
         item.onUnequip();
-        console.log('=== EquipmentSystem: Unequip Complete ===');
         return item;
     }
 

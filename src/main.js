@@ -9,33 +9,38 @@ class GameApp {
         this.init();
     }
 
-    init() {
+    async init() {
         console.log('=== GameApp: Starting initialization ===');
         try {
             // Initialize the game
             console.log('GameApp: Initializing game...');
-            this.game.init();
+            await this.game.init();
             console.log('GameApp: Game initialized successfully');
             
             // Start the game loop
             console.log('GameApp: Starting game loop');
-            this.update();
+            this.startGameLoop();
         } catch (error) {
             console.error('GameApp: Error during initialization:', error);
             console.error('Error stack:', error.stack);
         }
     }
 
-    update() {
+    startGameLoop() {
+        if (!this.game.isInitialized) {
+            console.error('GameApp: Cannot start game loop - game not initialized');
+            return;
+        }
+
         try {
             // Update game state
-            this.game.update();
+            this.game.update(performance.now());
             
             // Render the game
             this.game.render();
             
             // Request next frame
-            requestAnimationFrame(() => this.update());
+            requestAnimationFrame(() => this.startGameLoop());
         } catch (error) {
             console.error('GameApp: Error in game loop:', error);
             console.error('Error stack:', error.stack);

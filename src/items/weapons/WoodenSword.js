@@ -1,6 +1,7 @@
 import { ItemSchema } from '../ItemSchema';
 import { SwordAnimation } from './weaponAnimations/SwordAnimation';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 export class WoodenSword extends ItemSchema {
     constructor() {
@@ -59,8 +60,13 @@ export class WoodenSword extends ItemSchema {
         this.trainingWeapon = true; // Indicates this is a training weapon
         this.attackAnimation = new SwordAnimation();
         
-        // Create and set the 3D model
-        this.model = this.createModel();
+        // Create a temporary model immediately
+        const tempGroup = new THREE.Group();
+        this.createFallbackModel(tempGroup);
+        this.model = tempGroup;
+        
+        // Then try to load the GLB model
+        this.loadGLBModel();
     }
 
     // Special method for training weapons
@@ -93,65 +99,102 @@ export class WoodenSword extends ItemSchema {
 
     // Create the 3D model of the wooden sword
     createModel() {
-        // Create a group to hold all parts of the sword
+        // Create a group to hold the sword model
         const swordGroup = new THREE.Group();
 
-        // Blade dimensions
-        const bladeLength = 2.5;
-        const bladeWidth = 0.15;
-        const bladeHeight = 0.4;
-        const bladeGeometry = new THREE.BoxGeometry(bladeWidth, bladeLength, bladeHeight);
-        
-        // Handle dimensions
-        const handleLength = 0.8;
-        const handleWidth = 0.1;
-        const handleGeometry = new THREE.BoxGeometry(handleWidth, handleLength, handleWidth);
-        
-        // Guard dimensions
-        const guardWidth = 0.5;
-        const guardHeight = 0.15;
-        const guardDepth = 0.25;
-        const guardGeometry = new THREE.BoxGeometry(guardWidth, guardHeight, guardDepth);
+        const loader = new GLTFLoader();
 
-        // Materials
+        // Return a promise that resolves with the sword group
+        return new Promise((resolve, reject) => {
+            loader.load(
+                '/models/weapons/ironSword.glb',
+                (gltf) => {
+                    // Get the sword model from the loaded GLB
+                    const swordModel = gltf.scene;
+                    
+                    // Scale the model if needed
+                    swordModel.scale.set(0.5, 0.5, 0.5);
+                    
+                    // Rotate the model to the correct orientation
+                    swordModel.rotation.z = Math.PI / 2;
+                    
+                    // Add the model to the group
+                    swordGroup.add(swordModel);
+                    
+                    // Initialize the attack animation with the loaded model
+                    this.attackAnimation.init(swordGroup);
+                    resolve(swordGroup);
+                },
+                // Progress callback
+                (progress) => {
+                    const percent = (progress.loaded / progress.total * 100);
+                },
+                // Error callback
+                (error) => {
+                    // Create a fallback basic sword model if loading fails
+                    this.createFallbackModel(swordGroup);
+                    resolve(swordGroup); // Resolve with fallback model instead of rejecting
+                }
+            );
+        });
+    }
+
+    // Fallback model in case GLB loading fails
+    createFallbackModel(swordGroup) {
+        // Create a basic sword geometry as fallback
+        const bladeGeometry = new THREE.BoxGeometry(0.15, 2.5, 0.4);
+        const handleGeometry = new THREE.BoxGeometry(0.1, 0.8, 0.1);
+        const guardGeometry = new THREE.BoxGeometry(0.5, 0.15, 0.25);
+
         const bladeMaterial = new THREE.MeshStandardMaterial({
-            color: 0xcd7f32, // Bronze color
+            color: 0xcd7f32,
             metalness: 0.7,
             roughness: 0.3
         });
 
         const handleMaterial = new THREE.MeshStandardMaterial({
-            color: 0xffd700, // Gold color
+            color: 0xffd700,
             metalness: 0.8,
             roughness: 0.2
         });
 
-        // Create mesh components
         const blade = new THREE.Mesh(bladeGeometry, bladeMaterial);
         const handle = new THREE.Mesh(handleGeometry, handleMaterial);
         const guard = new THREE.Mesh(guardGeometry, handleMaterial);
 
-        // Position components
-        blade.position.y = handleLength / 2 + bladeLength / 2;
-        guard.position.y = handleLength;
-        
-        // Add components to group
+        blade.position.y = handleGeometry.parameters.height / 2 + bladeGeometry.parameters.height / 2;
+        guard.position.y = handleGeometry.parameters.height;
+
         swordGroup.add(blade);
         swordGroup.add(handle);
         swordGroup.add(guard);
 
-        // Rotate the sword to be horizontal
-        swordGroup.rotation.z = Math.PI / 2;
+        // Initialize the attack animation with the fallback model
+        this.attackAnimation.init(swordGroup);
+    }
 
-        // Add some edge beveling to the blade
-        const bevelGeometry = new THREE.BoxGeometry(bladeWidth * 0.8, bladeLength, bladeHeight * 0.8);
-        const bevelMesh = new THREE.Mesh(bevelGeometry, bladeMaterial);
-        bevelMesh.position.y = handleLength / 2 + bladeLength / 2;
-        swordGroup.add(bevelMesh);
+    // Load the GLB model
+    loadGLBModel() {
+        this.createModel().then(model => {
+            if (model instanceof THREE.Group) {
+                this.model = model;
+                this.attackAnimation.init(this.model);
+                this.dispatchEvent({ type: 'modelReady', model: this.model });
+            }
+        }).catch(error => {
+            // Keep fallback model
+        });
+    }
 
-        // Set the pivot point to the handle end
-        swordGroup.position.y = -handleLength / 2;
-
-        return swordGroup;
+    // Override the onEquip method to ensure we have a valid model
+    onEquip() {
+        if (this.model instanceof Promise) {
+            this.model.then(model => {
+                if (model instanceof THREE.Group) {
+                    this.model = model;
+                    this.attackAnimation.init(this.model);
+                }
+            });
+        }
     }
 } 

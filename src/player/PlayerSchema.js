@@ -95,13 +95,15 @@ export class PlayerSchema extends NPCSchema {
         // Arms
         const armGeometry = new THREE.CylinderGeometry(0.08, 0.08, 0.6, 8);
         const leftArm = new THREE.Mesh(armGeometry, bodyMaterial);
-        leftArm.position.set(0.3, 1.4, 0);
+        leftArm.position.set(0.3, 1.4, 0.3);
         leftArm.rotation.z = Math.PI * 0.1;
+        leftArm.rotation.x = -Math.PI * 0.1;
         leftArm.castShadow = true;
 
         const rightArm = new THREE.Mesh(armGeometry, bodyMaterial);
-        rightArm.position.set(-0.3, 1.4, 0);
+        rightArm.position.set(-0.3, 1.4, 0.3);
         rightArm.rotation.z = -Math.PI * 0.1;
+        rightArm.rotation.x = -Math.PI * 0.2;
         rightArm.castShadow = true;
 
         // Legs

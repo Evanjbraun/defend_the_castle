@@ -1,12 +1,18 @@
 import { PlayerSchema } from './PlayerSchema';
 import { PlayerCamera } from '../systems/camera/PlayerCamera';
 import { WoodenSword } from '../items/weapons/WoodenSword';
+import { EquipmentSystem } from '../equipment/EquipmentSystem';
 import * as THREE from 'three';
 
 export class Player extends PlayerSchema {
     constructor(config = {}) {
         console.log('=== Player: Starting Constructor ===');
         super(config);
+
+        // Initialize equipment system
+        console.log('Player: Initializing equipment system');
+        this.equipmentSystem = new EquipmentSystem(this);
+        console.log('Player: Equipment system initialized:', this.equipmentSystem);
 
         // Create the player's model
         console.log('Player: Creating model');
@@ -30,20 +36,37 @@ export class Player extends PlayerSchema {
         this.cameraController = new PlayerCamera();
         this.cameraController.init(this.camera, this);
 
-
-        // Create and equip wooden sword
-        console.log('Player: Creating wooden sword');
+        // Create and equip the wooden sword
         const woodenSword = new WoodenSword();
-        console.log('Player: Wooden sword created:', woodenSword);
+        console.log('Player: Created wooden sword:', woodenSword);
         
-        // Create the 3D model for the sword
-        console.log('Player: Creating sword model');
-        woodenSword.model = woodenSword.createModel();
-        console.log('Player: Sword model created:', woodenSword.model);
+        // Wait for the model to be ready before equipping
+        if (woodenSword.model instanceof Promise) {
+            console.log('Player: Waiting for sword model to load...');
+            woodenSword.model.then(model => {
+                console.log('Player: Sword model loaded:', model);
+                if (model instanceof THREE.Group) {
+                    woodenSword.model = model;
+                    this.equipmentSystem.equip(woodenSword, 'MAINHAND');
+                } else {
+                    console.error('Player: Invalid sword model type:', model);
+                }
+            }).catch(error => {
+                console.error('Player: Error loading sword model:', error);
+                // Try to equip with fallback model if available
+                if (woodenSword.model instanceof THREE.Group) {
+                    console.log('Player: Using fallback sword model');
+                    this.equipmentSystem.equip(woodenSword, 'MAINHAND');
+                }
+            });
+        } else if (woodenSword.model instanceof THREE.Group) {
+            // If we already have a valid model, equip immediately
+            console.log('Player: Using existing sword model');
+            this.equipmentSystem.equip(woodenSword, 'MAINHAND');
+        } else {
+            console.error('Player: No valid sword model available');
+        }
         
-        // Equip the sword
-        console.log('Player: Equipping wooden sword');
-        this.equipment.equip(woodenSword, 'MAINHAND');
         console.log('=== Player: Constructor Complete ===');
     }
 

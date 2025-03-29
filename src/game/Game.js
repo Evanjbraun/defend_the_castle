@@ -6,9 +6,11 @@ import { HumanDummy } from '../npc/humanoid/HumanDummy';
 import { Player } from '../player/Player';
 import { PlayerSettings } from '../systems/settings/PlayerSettings';
 import { GameMenu } from '../ui/GameMenu';
+import { AudioSystem } from '../systems/audio/AudioSystem';
 
 export class Game {
     constructor() {
+        // Initialize all properties first
         this.scene = null;
         this.camera = null;
         this.renderer = null;
@@ -26,99 +28,162 @@ export class Game {
         this.gameMenu = null;
         this.isInitialized = false;
         this.isPaused = false;
+        
+        // Initialize audio system
+        this.audioSystem = new AudioSystem();
+        
+        // Bind methods to preserve 'this' context
+        this.onKeyDown = this.onKeyDown.bind(this);
+        this.pauseGame = this.pauseGame.bind(this);
+        this.resumeGame = this.resumeGame.bind(this);
+        this.onWindowResize = this.onWindowResize.bind(this);
+        this.update = this.update.bind(this);
+        this.render = this.render.bind(this);
+        this.onUserInteraction = this.onUserInteraction.bind(this);
+
+        // Add user interaction listener
+        window.addEventListener('click', this.onUserInteraction);
+        window.addEventListener('keydown', this.onUserInteraction);
+        window.addEventListener('touchstart', this.onUserInteraction);
     }
 
-    init() {
-        console.log('=== Game: Starting Initialization ===');
-        // Initialize settings
-        this.settings = new PlayerSettings();
+    onUserInteraction() {
+        // Remove event listeners after first interaction
+        window.removeEventListener('click', this.onUserInteraction);
+        window.removeEventListener('keydown', this.onUserInteraction);
+        window.removeEventListener('touchstart', this.onUserInteraction);
         
-        // Initialize Three.js scene
-        console.log('Game: Creating scene');
-        this.scene = new Scene();
-        this.scene.init();
+        // Notify audio system
+        this.audioSystem.onUserInteraction();
+    }
 
-        // Initialize camera
-        console.log('Game: Creating camera');
-        this.camera = new THREE.PerspectiveCamera(
-            75,
-            window.innerWidth / window.innerHeight,
-            0.1,
-            2000
-        );
+    async init() {
+        try {
+            console.log('=== Game: Starting Initialization ===');
+            
+            // Initialize settings first
+            this.settings = new PlayerSettings();
+            
+            // Initialize Three.js scene
+            console.log('Game: Creating scene');
+            this.scene = new Scene();
+            this.scene.init();
 
-        // Initialize renderer
-        console.log('Game: Creating renderer');
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.setClearColor(0x87CEEB, 1); // Set clear color to sky blue
-        this.renderer.sortObjects = true; // Ensure proper sorting for transparent objects
-        document.getElementById('game-container').appendChild(this.renderer.domElement);
+            // Initialize camera
+            console.log('Game: Creating camera');
+            this.camera = new THREE.PerspectiveCamera(
+                75,
+                window.innerWidth / window.innerHeight, 
+                0.1,
+                2000
+            );
 
-        // Initialize game components
-        console.log('Game: Creating castle');
-        this.castle = new Castle();
-        this.castle.init();
-        this.scene.add(this.castle.getMesh());
+            // Initialize renderer
+            console.log('Game: Creating renderer');
+            this.renderer = new THREE.WebGLRenderer({ antialias: true });
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.shadowMap.enabled = true;
+            this.renderer.setClearColor(0x87CEEB, 1);
+            this.renderer.sortObjects = true;
+            document.getElementById('game-container').appendChild(this.renderer.domElement);
 
-        // Initialize player
-        console.log('Game: Creating player');
-        this.player = new Player();
-        console.log('Game: Player created:', this.player);
-        this.player.mesh.castShadow = true;
-        this.player.mesh.receiveShadow = true;
-        this.scene.add(this.player.mesh);
-        console.log('Game: Player added to scene');
+            // Initialize game components
+            console.log('Game: Creating castle');
+            this.castle = new Castle();
+            this.castle.init();
+            this.scene.add(this.castle.getMesh());
 
-        // Initialize crosshair
-        this.crosshair = new Crosshair({
-            size: 20,
-            thickness: 2,
-            gap: 6,
-            color: '#ffffff',
-            borderColor: '#000000',
-            borderThickness: 1,
-            dot: {
-                show: true,
-                size: 2
+            // Initialize player
+            console.log('Game: Creating player');
+            this.player = new Player();
+            console.log('Game: Player created:', this.player);
+            this.player.mesh.castShadow = true;
+            this.player.mesh.receiveShadow = true;
+            this.scene.add(this.player.mesh);
+            console.log('Game: Player added to scene');
+
+            // Initialize crosshair
+            this.crosshair = new Crosshair({
+                size: 20,
+                thickness: 2,
+                gap: 6,
+                color: '#ffffff',
+                borderColor: '#000000',
+                borderThickness: 1,
+                dot: {
+                    show: true,
+                    size: 2
+                }
+            });
+            this.crosshair.init();
+
+            // Add extra light for better visibility
+            const spotLight = new THREE.SpotLight(0xffffff, 1);
+            spotLight.position.set(10, 15, 10);
+            spotLight.castShadow = true;
+            this.scene.add(spotLight);
+
+            // Initialize training dummy
+            this.trainingDummy = new HumanDummy();
+            this.trainingDummy.init();
+            this.trainingDummy.setPosition(0, 0, 0);
+            
+            if (this.trainingDummy.mesh) {
+                this.trainingDummy.mesh.castShadow = true;
+                this.trainingDummy.mesh.receiveShadow = true;
+                this.scene.add(this.trainingDummy.mesh);
             }
-        });
-        this.crosshair.init();
 
-        // Add extra light for better visibility
-        const spotLight = new THREE.SpotLight(0xffffff, 1);
-        spotLight.position.set(10, 15, 10);
-        spotLight.castShadow = true;
-        this.scene.add(spotLight);
+            // Initialize game menu
+            this.gameMenu = new GameMenu(this);
+            this.gameMenu.init(this.settings);
 
-        // Initialize training dummy
-        this.trainingDummy = new HumanDummy();
-        this.trainingDummy.init();
-        // Position the dummy in the middle of the scene
-        this.trainingDummy.setPosition(0, 0, 0);
-        
-        // Add the dummy to the scene
-        if (this.trainingDummy.mesh) {
-            this.trainingDummy.mesh.castShadow = true;
-            this.trainingDummy.mesh.receiveShadow = true;
-            this.scene.add(this.trainingDummy.mesh);
+            // Add event listeners
+            window.addEventListener('resize', this.onWindowResize);
+            window.addEventListener('keydown', this.onKeyDown);
+
+            // Start background music
+            this.audioSystem.playMusic('/music/main_theme.mp3', 0.5, true);
+
+            // Mark as initialized
+            this.isInitialized = true;
+            
+            console.log('=== Game: Initialization Complete ===');
+        } catch (error) {
+            console.error('Error during game initialization:', error);
+            throw error;
         }
-
-        // Initialize game menu
-        this.gameMenu = new GameMenu(this);
-        this.gameMenu.init(this.settings);
-
-        // Add event listeners
-        window.addEventListener('resize', this.onWindowResize.bind(this));
-        
-        // Add escape key listener for pause menu
-        window.addEventListener('keydown', this.onKeyDown.bind(this));
-
-        this.isInitialized = true;
-        console.log('=== Game: Initialization Complete ===');
     }
-    
+
+    update(currentTime) {
+        if (!this.isInitialized || this.isPaused) return;
+
+        // Calculate delta time
+        const deltaTime = (currentTime - this.lastTime) / 1000;
+        this.lastTime = currentTime;
+
+        // Update game state
+        this.castle.update();
+        this.player.update(deltaTime);
+        
+        // Update training dummy
+        if (this.trainingDummy) {
+            this.trainingDummy.update(deltaTime);
+        }
+    }
+
+    render() {
+        if (!this.isInitialized) return;
+        
+        // Render the scene
+        this.renderer.render(this.scene.getScene(), this.player.getCamera());
+        
+        // Update menu if needed
+        if (this.gameMenu) {
+            this.gameMenu.update();
+        }
+    }
+
     onKeyDown(event) {
         if (event.code === 'Escape') {
             if (this.gameMenu.isVisible) {
@@ -138,6 +203,7 @@ export class Game {
     pauseGame() {
         this.isPaused = true;
         this.gameMenu.show();
+        this.audioSystem.stopMusic();
         
         // Release pointer lock when paused
         if (document.pointerLockElement) {
@@ -148,42 +214,12 @@ export class Game {
     resumeGame() {
         this.isPaused = false;
         this.gameMenu.hide();
+        this.audioSystem.playMusic('/music/main_theme.mp3', 0.5, true);
         
         // Acquire pointer lock when resumed
         if (!document.pointerLockElement) {
             document.body.requestPointerLock();
         }
-    }
-
-    update() {
-        if (!this.isInitialized || this.isPaused) return;
-
-        const deltaTime = 0.016; // ~60fps
-
-        // Update game state
-     
-        this.castle.update();
-        this.player.update(deltaTime);
-        
-        // Update training dummy
-        if (this.trainingDummy) {
-            this.trainingDummy.update(deltaTime);
-        }
-        
-    }
-
-    render() {
-        if (!this.isInitialized) return;
-        
-    
-        // Render the scene
-        this.renderer.render(this.scene.getScene(), this.player.getCamera());
-        
-        // Update menu if needed
-        if (this.gameMenu) {
-            this.gameMenu.update();
-        }
-       
     }
 
     onWindowResize() {

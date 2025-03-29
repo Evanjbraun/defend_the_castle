@@ -46,9 +46,9 @@ export class HumanDummy extends NPCSchema {
         // Custom item transformations for equipment
         this.itemTransformations = {
             RIGHT_HAND: {
-                position: { x: 0.4, y: -0.2, z: 0 },
-                rotation: { x: 0, y: 1.4, z: 1.5 }, // Adjust these values to change sword orientation
-                scale: { x: 0.3, y: 0.3, z: 0.3 }
+                position: { x: 0.4, y: 0.7, z: 0 },
+                rotation: { x: -2, y: 1.4, z: 1.5 },
+                scale: { x: 1, y: 1, z: 1 }
             },
             LEFT_HAND: {
                 position: { x: 0, y: 0, z: 0 },
@@ -290,8 +290,8 @@ export class HumanDummy extends NPCSchema {
             scale: 1.0, // Use default scale
             positions: {
                 // Custom positions for the dummy if needed
-                RIGHT_HAND: { x: 0, y: .9, z: 0 },
-                LEFT_HAND: { x: -0.6, y: 1.2, z: 0 },
+                RIGHT_HAND: { x: 0, y: 0, z: 0 },
+                LEFT_HAND: { x: -0.6, y: 0, z: 0 },
                 HEAD: { x: 0, y: 2.1, z: 0 },
                 CHEST: { x: 0, y: 1.5, z: 0.1 },
                 LEGS: { x: 0, y: 0.8, z: 0 },

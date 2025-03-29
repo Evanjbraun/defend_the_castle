@@ -72,57 +72,70 @@ export class NPCUtility {
             const attachPoint = npc.attachmentPoints[slot.slotType];
             
             if (attachPoint && item.model) {
-                // Clone the item's model
-                const itemModel = item.model.clone();
-                
-                if (itemModel) {
-                    // Clear any existing item
-                    while (attachPoint.children.length > 0) {
-                        attachPoint.remove(attachPoint.children[0]);
+                try {
+                    // Check if model is a valid THREE.Group
+                    if (!(item.model instanceof THREE.Group)) {
+                        console.error('Invalid model type:', item.model);
+                        return;
                     }
-                    
-                    // Default transformations for different slots
-                    const defaultTransformations = {
-                        RIGHT_HAND: {
-                            position: { x: 0, y: 0, z: 0 },
-                            rotation: { x: 0, y: 1, z: -Math.PI / 2 },
-                            scale: { x: 0.5, y: 0.5, z: 0.5 }
-                        },
-                        LEFT_HAND: {
-                            position: { x: 0, y: 0, z: 0 },
-                            rotation: { x: 0, y: 0, z: Math.PI / 2 },
-                            scale: { x: 0.5, y: 0.5, z: 0.5 }
-                        }
-                    };
 
-                    // Use custom transformations if provided by NPC, otherwise use defaults
-                    const transformations = npc.itemTransformations?.[slot.slotType] || defaultTransformations[slot.slotType];
+                    // Clone the item's model
+                    const itemModel = item.model.clone();
                     
-                    if (transformations) {
-                        // Apply position
-                        itemModel.position.set(
-                            transformations.position.x,
-                            transformations.position.y,
-                            transformations.position.z
-                        );
+                    if (itemModel) {
+                        // Clear any existing item
+                        while (attachPoint.children.length > 0) {
+                            attachPoint.remove(attachPoint.children[0]);
+                        }
                         
-                        // Apply rotation
-                        itemModel.rotation.set(
-                            transformations.rotation.x,
-                            transformations.rotation.y,
-                            transformations.rotation.z
-                        );
+                        // Default transformations for different slots
+                        const defaultTransformations = {
+                            RIGHT_HAND: {
+                                position: { x: 0, y: 0, z: 0 },
+                                rotation: { x: 0, y: 1, z: -Math.PI / 2 },
+                                scale: { x: 0.5, y: 0.5, z: 0.5 }
+                            },
+                            LEFT_HAND: {
+                                position: { x: 0, y: 0, z: 0 },
+                                rotation: { x: 0, y: 0, z: Math.PI / 2 },
+                                scale: { x: 0.5, y: 0.5, z: 0.5 }
+                            }
+                        };
+
+                        // Use custom transformations if provided by NPC, otherwise use defaults
+                        const transformations = npc.itemTransformations?.[slot.slotType] || defaultTransformations[slot.slotType];
                         
-                        // Apply scale
-                        itemModel.scale.set(
-                            transformations.scale.x,
-                            transformations.scale.y,
-                            transformations.scale.z
-                        );
+                        if (transformations) {
+                            // Apply position
+                            itemModel.position.set(
+                                transformations.position.x,
+                                transformations.position.y,
+                                transformations.position.z
+                            );
+                            
+                            // Apply rotation
+                            itemModel.rotation.set(
+                                transformations.rotation.x,
+                                transformations.rotation.y,
+                                transformations.rotation.z
+                            );
+                            
+                            // Apply scale
+                            itemModel.scale.set(
+                                transformations.scale.x,
+                                transformations.scale.y,
+                                transformations.scale.z
+                            );
+                        }
+                        
+                        // Add the new item
+                        attachPoint.add(itemModel);
                     }
-                    
-                    // Add the new item
-                    attachPoint.add(itemModel);
+                } catch (error) {
+                    console.error('Error handling item equipped:', error);
+                    console.error('Item model:', item.model);
+                    console.error('Item model type:', typeof item.model);
+                    console.error('Is THREE.Group?', item.model instanceof THREE.Group);
                 }
             }
         }
