@@ -77,8 +77,11 @@ export class PlayerCamera {
         document.addEventListener('mousemove', (event) => {
             // Only process mouse movement if pointer is locked and game is not paused
             if (document.pointerLockElement === document.body && (!this.game || !this.game.isPaused)) {
-                // Update camera rotation
-                this.euler.setFromQuaternion(this.camera.quaternion);
+                // Get the player mesh (camera's parent)
+                const playerMesh = this.camera.parent;
+                
+                // Get current rotation of the player mesh
+                this.euler.setFromQuaternion(playerMesh.quaternion);
                 
                 let movementX = event.movementX;
                 let movementY = event.movementY;
@@ -92,13 +95,18 @@ export class PlayerCamera {
                     movementY = -movementY;
                 }
                 
+                // Update both X and Y rotation
                 this.euler.y -= movementX * this.mouseSensitivity;
                 this.euler.x -= movementY * this.mouseSensitivity;
                 
                 // Limit vertical rotation (between looking straight down and straight up)
                 this.euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.euler.x));
                 
-                this.camera.quaternion.setFromEuler(this.euler);
+                // Apply the full rotation to the player mesh
+                playerMesh.quaternion.setFromEuler(this.euler);
+                
+                // Reset camera's local rotation since it's a child of the player mesh
+                this.camera.rotation.set(0, 0, 0);
             }
         });
     }
@@ -175,9 +183,12 @@ export class PlayerCamera {
         this.direction.x = Number(this.moveRight) - Number(this.moveLeft);
         this.direction.normalize();
 
-        // Get camera's forward and right vectors
-        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
-        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+        // Get the player mesh (camera's parent)
+        const playerMesh = this.camera.parent;
+
+        // Get forward and right vectors based on player mesh rotation
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(playerMesh.quaternion);
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(playerMesh.quaternion);
 
         // Remove any vertical component from movement vectors
         forward.y = 0;
@@ -185,8 +196,8 @@ export class PlayerCamera {
         forward.normalize();
         right.normalize();
 
-        // Store current position
-        const newPosition = this.camera.position.clone();
+        // Store current position of the player mesh
+        const newPosition = playerMesh.position.clone();
 
         // Calculate new position
         if (this.moveForward || this.moveBackward) {
@@ -199,14 +210,14 @@ export class PlayerCamera {
         // Check if new position is within bounds
         if (this.isWithinBounds(newPosition)) {
             // Update position if within bounds
-            this.camera.position.copy(newPosition);
+            playerMesh.position.copy(newPosition);
         } else {
             // Clamp position to bounds if outside
-            this.camera.position.copy(this.clampToBounds(newPosition));
+            playerMesh.position.copy(this.clampToBounds(newPosition));
         }
 
-        // Keep the camera at fixed height
-        this.camera.position.y = this.eyeHeight;
+        // Keep the player mesh at ground level
+        playerMesh.position.y = 0;
     }
 
     getCamera() {

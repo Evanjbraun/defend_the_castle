@@ -1,10 +1,9 @@
 import * as THREE from 'three';
 import { Scene } from '../scenes/Scene';
 import { Castle } from '../components/Castle';
-import { PlayerCamera } from '../systems/camera/PlayerCamera';
 import { Crosshair } from '../ui/Crosshair';
 import { HumanDummy } from '../npc/humanoid/HumanDummy';
-import { WoodenSword } from '../items/weapons/WoodenSword';
+import { Player } from '../player/Player';
 import { PlayerSettings } from '../systems/settings/PlayerSettings';
 import { GameMenu } from '../ui/GameMenu';
 
@@ -21,7 +20,6 @@ export class Game {
         this.lastTime = 0;
         this.deltaTime = 0;
         this.castle = null;
-        this.playerCamera = null;
         this.crosshair = null;
         this.trainingDummy = null;
         this.settings = null;
@@ -31,14 +29,17 @@ export class Game {
     }
 
     init() {
+        console.log('=== Game: Starting Initialization ===');
         // Initialize settings
         this.settings = new PlayerSettings();
         
         // Initialize Three.js scene
+        console.log('Game: Creating scene');
         this.scene = new Scene();
         this.scene.init();
 
         // Initialize camera
+        console.log('Game: Creating camera');
         this.camera = new THREE.PerspectiveCamera(
             75,
             window.innerWidth / window.innerHeight,
@@ -47,6 +48,7 @@ export class Game {
         );
 
         // Initialize renderer
+        console.log('Game: Creating renderer');
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.shadowMap.enabled = true;
@@ -55,13 +57,19 @@ export class Game {
         document.getElementById('game-container').appendChild(this.renderer.domElement);
 
         // Initialize game components
+        console.log('Game: Creating castle');
         this.castle = new Castle();
         this.castle.init();
         this.scene.add(this.castle.getMesh());
 
-        // Initialize player camera
-        this.playerCamera = new PlayerCamera();
-        this.playerCamera.init(this.camera, this);
+        // Initialize player
+        console.log('Game: Creating player');
+        this.player = new Player();
+        console.log('Game: Player created:', this.player);
+        this.player.mesh.castShadow = true;
+        this.player.mesh.receiveShadow = true;
+        this.scene.add(this.player.mesh);
+        console.log('Game: Player added to scene');
 
         // Initialize crosshair
         this.crosshair = new Crosshair({
@@ -108,6 +116,7 @@ export class Game {
         window.addEventListener('keydown', this.onKeyDown.bind(this));
 
         this.isInitialized = true;
+        console.log('=== Game: Initialization Complete ===');
     }
     
     onKeyDown(event) {
@@ -152,25 +161,29 @@ export class Game {
         const deltaTime = 0.016; // ~60fps
 
         // Update game state
+     
         this.castle.update();
-        this.playerCamera.update();
+        this.player.update(deltaTime);
         
         // Update training dummy
         if (this.trainingDummy) {
             this.trainingDummy.update(deltaTime);
         }
+        
     }
 
     render() {
         if (!this.isInitialized) return;
         
+    
         // Render the scene
-        this.renderer.render(this.scene.getScene(), this.camera);
+        this.renderer.render(this.scene.getScene(), this.player.getCamera());
         
         // Update menu if needed
         if (this.gameMenu) {
             this.gameMenu.update();
         }
+       
     }
 
     onWindowResize() {
