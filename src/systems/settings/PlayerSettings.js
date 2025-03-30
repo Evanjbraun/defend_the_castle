@@ -1,38 +1,64 @@
+import { InputManager } from '../input/InputManager';
+
 export class PlayerSettings {
     constructor() {
+        this.inputManager = new InputManager();
+        
+        // Movement bindings
+        this.inputManager.bindKey('w', 'MOVE_FORWARD');
+        this.inputManager.bindKey('s', 'MOVE_BACKWARD');
+        this.inputManager.bindKey('a', 'MOVE_LEFT');
+        this.inputManager.bindKey('d', 'MOVE_RIGHT');
+        
+        // Mouse bindings
+        this.inputManager.bindMouseButton('LEFT', 'ATTACK');
+        this.inputManager.bindMouseButton('RIGHT', 'BLOCK');
+        
+        // Camera control
+        this.inputManager.bindMouseAxis('X', 'LOOK_HORIZONTAL');
+        this.inputManager.bindMouseAxis('Y', 'LOOK_VERTICAL');
+        
+        // Action bindings
+        this.inputManager.bindKey('SPACE', 'JUMP');
+        this.inputManager.bindKey('SHIFT', 'SPRINT');
+        this.inputManager.bindKey('TAB', 'INVENTORY');
+        this.inputManager.bindKey('ESC', 'PAUSE');
+        
+        // Combat settings
+        this.attackCooldown = 0.5; // seconds between attacks
+        this.lastAttackTime = 0;
+        this.attackAnimationDuration = 0.3; // seconds for the swing animation
+        this.attackAnimationProgress = 0;
+        this.isAttacking = false;
+        
+        // Movement settings
+        this.walkSpeed = 5;
+        this.sprintSpeed = 8;
+        this.jumpForce = 5;
+        this.rotationSpeed = 0.002;
+        
+        // Camera settings
+        this.cameraHeight = 1.6;
+        this.cameraDistance = 0;
+        this.minPitch = -Math.PI / 2;
+        this.maxPitch = Math.PI / 2;
+        
         // Default settings
         this.settings = {
-            // Camera/Mouse settings
-            mouseSensitivity: 0.2,
-            invertMouseY: false,
-            invertMouseX: false,
-            
-            // Movement settings
-            movementSpeed: 0.08,
-            sprintMultiplier: 1.5,
-            
-            // Controls - Key mapping using keyboard codes
-            controls: {
-                moveForward: 'KeyW',
-                moveBackward: 'KeyS',
-                moveLeft: 'KeyA',
-                moveRight: 'KeyD',
-                sprint: 'ShiftLeft',
-                jump: 'Space',
-                openInventory: 'Tab',
-                openMenu: 'Escape',
-                interact: 'KeyE',
-                attack: 'Mouse0', // Left mouse button
-                block: 'Mouse1',  // Right mouse button
+            audio: {
+                masterVolume: 1.0,
+                musicVolume: 0.7,
+                sfxVolume: 0.8
             },
-            
-            // Visual settings
-            showCrosshair: true,
-            showHUD: true,
-            
-            // Game settings
-            difficultyLevel: 'normal', // 'easy', 'normal', 'hard'
-            enableTutorialTips: true
+            graphics: {
+                quality: 'high',
+                shadows: true,
+                antiAliasing: true
+            },
+            controls: {
+                mouseSensitivity: 1.0,
+                invertY: false
+            }
         };
         
         // Load settings from localStorage if available
@@ -40,6 +66,119 @@ export class PlayerSettings {
         
         // Listeners for settings changes
         this.listeners = [];
+    }
+    
+    /**
+     * Check if the attack action is pressed and cooldown is ready
+     * @returns {boolean} Whether attack should be triggered
+     */
+    shouldAttack() {
+        const currentTime = performance.now() / 1000;
+        if (this.inputManager.isMouseButtonPressed('LEFT') && 
+            currentTime - this.lastAttackTime >= this.attackCooldown) {
+            this.lastAttackTime = currentTime;
+            this.isAttacking = true;
+            this.attackAnimationProgress = 0;
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Update attack animation progress
+     * @param {number} deltaTime - Time since last update
+     */
+    updateAttackAnimation(deltaTime) {
+        if (this.isAttacking) {
+            this.attackAnimationProgress += deltaTime;
+            if (this.attackAnimationProgress >= this.attackAnimationDuration) {
+                this.isAttacking = false;
+                this.attackAnimationProgress = 0;
+            }
+        }
+    }
+    
+    /**
+     * Get the current attack animation progress (0 to 1)
+     * @returns {number} Animation progress
+     */
+    getAttackAnimationProgress() {
+        return this.isAttacking ? 
+            this.attackAnimationProgress / this.attackAnimationDuration : 0;
+    }
+    
+    /**
+     * Get the current movement direction based on input
+     * @returns {Object} Movement direction vector
+     */
+    getMovementDirection() {
+        const direction = { x: 0, z: 0 };
+        
+        if (this.inputManager.isKeyPressed('MOVE_FORWARD')) direction.z -= 1;
+        if (this.inputManager.isKeyPressed('MOVE_BACKWARD')) direction.z += 1;
+        if (this.inputManager.isKeyPressed('MOVE_LEFT')) direction.x -= 1;
+        if (this.inputManager.isKeyPressed('MOVE_RIGHT')) direction.x += 1;
+        
+        // Normalize diagonal movement
+        if (direction.x !== 0 && direction.z !== 0) {
+            const length = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
+            direction.x /= length;
+            direction.z /= length;
+        }
+        
+        return direction;
+    }
+    
+    /**
+     * Get the current movement speed based on sprint state
+     * @returns {number} Current movement speed
+     */
+    getMovementSpeed() {
+        return this.inputManager.isKeyPressed('SPRINT') ? this.sprintSpeed : this.walkSpeed;
+    }
+    
+    /**
+     * Get the current camera rotation based on mouse movement
+     * @returns {Object} Camera rotation values
+     */
+    getCameraRotation() {
+        return {
+            yaw: this.inputManager.getMouseAxis('LOOK_HORIZONTAL') * this.rotationSpeed,
+            pitch: this.inputManager.getMouseAxis('LOOK_VERTICAL') * this.rotationSpeed
+        };
+    }
+    
+    /**
+     * Check if jump should be triggered
+     * @returns {boolean} Whether jump should be triggered
+     */
+    shouldJump() {
+        return this.inputManager.isKeyPressed('JUMP');
+    }
+    
+    /**
+     * Check if inventory should be opened
+     * @returns {boolean} Whether inventory should be opened
+     */
+    shouldOpenInventory() {
+        return this.inputManager.isKeyPressed('INVENTORY');
+    }
+    
+    /**
+     * Check if game should be paused
+     * @returns {boolean} Whether game should be paused
+     */
+    shouldPause() {
+        return this.inputManager.isKeyPressed('PAUSE');
+    }
+    
+    /**
+     * Update input state
+     * @param {number} deltaTime - Time since last update
+     */
+    update(deltaTime) {
+        this.inputManager.update();
+        this.updateAttackAnimation(deltaTime);
     }
     
     // Get a specific setting
@@ -78,34 +217,21 @@ export class PlayerSettings {
     // Reset all settings to default
     resetToDefault() {
         this.settings = {
-            mouseSensitivity: 0.2,
-            invertMouseY: false,
-            invertMouseX: false,
-            movementSpeed: 0.08,
-            sprintMultiplier: 1.5,
-            controls: {
-                moveForward: 'KeyW',
-                moveBackward: 'KeyS',
-                moveLeft: 'KeyA',
-                moveRight: 'KeyD',
-                sprint: 'ShiftLeft',
-                jump: 'Space',
-                openInventory: 'Tab',
-                openMenu: 'Escape',
-                interact: 'KeyE',
-                attack: 'Mouse0',
-                block: 'Mouse1',
+            audio: {
+                masterVolume: 1.0,
+                musicVolume: 0.7,
+                sfxVolume: 0.8
             },
-            showCrosshair: true,
-            showHUD: true,
-            difficultyLevel: 'normal',
-            enableTutorialTips: true
+            graphics: {
+                quality: 'high',
+                shadows: true,
+                antiAliasing: true
+            },
+            controls: {
+                mouseSensitivity: 1.0,
+                invertY: false
+            }
         };
-        
-        // Notify listeners of reset
-        this.notifyListeners('all', null, null);
-        
-        // Save settings to localStorage
         this.saveSettings();
     }
     

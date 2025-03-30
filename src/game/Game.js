@@ -2,11 +2,12 @@ import * as THREE from 'three';
 import { Scene } from '../scenes/Scene';
 import { Castle } from '../components/Castle';
 import { Crosshair } from '../ui/Crosshair';
-import { HumanDummy } from '../npc/humanoid/HumanDummy';
+import { Goblin } from '../npc/humanoid/Goblin';
 import { Player } from '../player/Player';
 import { PlayerSettings } from '../systems/settings/PlayerSettings';
 import { GameMenu } from '../ui/GameMenu';
 import { AudioSystem } from '../systems/audio/AudioSystem';
+import { TreeManager } from '../entities/environment/TreeManager';
 
 export class Game {
     constructor() {
@@ -23,11 +24,12 @@ export class Game {
         this.deltaTime = 0;
         this.castle = null;
         this.crosshair = null;
-        this.trainingDummy = null;
+        this.goblin = null;
         this.settings = null;
         this.gameMenu = null;
         this.isInitialized = false;
         this.isPaused = false;
+        this.treeManager = null;
         
         // Initialize audio system
         this.audioSystem = new AudioSystem();
@@ -123,16 +125,31 @@ export class Game {
             spotLight.castShadow = true;
             this.scene.add(spotLight);
 
-            // Initialize training dummy
-            this.trainingDummy = new HumanDummy();
-            this.trainingDummy.init();
-            this.trainingDummy.setPosition(0, 0, 0);
+            // Initialize goblin
+            console.log('Game: Creating goblin');
+            this.goblin = new Goblin({
+                position: new THREE.Vector3(5, 0, 5), // Position the goblin 5 units away from center
+                rotation: new THREE.Euler(0, Math.PI, 0, 'YXZ') // Face the center with explicit rotation order
+            });
             
-            if (this.trainingDummy.mesh) {
-                this.trainingDummy.mesh.castShadow = true;
-                this.trainingDummy.mesh.receiveShadow = true;
-                this.scene.add(this.trainingDummy.mesh);
+            // Wait for goblin to be fully initialized
+            const goblinMesh = await this.goblin.init(this.scene.getScene());
+            if (goblinMesh) {
+                console.log('Game: Goblin added to scene');
+            } else {
+                console.error('Game: Failed to initialize goblin mesh');
             }
+
+            // Initialize tree manager
+            console.log('Game: Creating tree manager');
+            this.treeManager = new TreeManager(this.scene.getScene(), {
+                minDistanceFromCenter: 40,
+                maxDistanceFromCenter: 100,
+                minTrees: 20,
+                maxTrees: 40,
+                minDistanceBetweenTrees: 5
+            });
+            await this.treeManager.init();
 
             // Initialize game menu
             this.gameMenu = new GameMenu(this);
@@ -166,9 +183,14 @@ export class Game {
         this.castle.update();
         this.player.update(deltaTime);
         
-        // Update training dummy
-        if (this.trainingDummy) {
-            this.trainingDummy.update(deltaTime);
+        // Update goblin
+        if (this.goblin) {
+            this.goblin.update(deltaTime);
+        }
+
+        // Update trees
+        if (this.treeManager) {
+            this.treeManager.update(deltaTime);
         }
     }
 

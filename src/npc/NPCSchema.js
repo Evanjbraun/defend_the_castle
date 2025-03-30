@@ -54,15 +54,20 @@ export class NPCSchema {
     }
 
     // Initialize the NPC
-    init(scene) {
+    async init(scene) {
         if (this.isInitialized) return;
         
-        this.createModel();
-        if (this.mesh && scene) {
-            scene.add(this.mesh);
+        try {
+            await this.createModel();
+            if (this.mesh && scene) {
+                scene.add(this.mesh);
+            }
+            this.isInitialized = true;
+            return this.mesh;
+        } catch (error) {
+            console.error(`Error initializing ${this.name}:`, error);
+            return null;
         }
-        
-        this.isInitialized = true;
     }
 
     // Create the NPC's 3D model - to be overridden by specific NPC types

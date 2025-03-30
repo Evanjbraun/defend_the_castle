@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 export class WoodenSword extends ItemSchema {
     constructor() {
+        console.log('=== WoodenSword: Starting Constructor ===');
         super({
             // Basic properties
             id: 'weapon_wooden_sword',
@@ -57,16 +58,30 @@ export class WoodenSword extends ItemSchema {
 
         // Additional wooden sword specific properties
         this.woodType = 'Oak';
-        this.trainingWeapon = true; // Indicates this is a training weapon
+        this.trainingWeapon = true;
         this.attackAnimation = new SwordAnimation();
+        this.equippedModel = null;
         
+        console.log('WoodenSword: Creating temporary model');
         // Create a temporary model immediately
         const tempGroup = new THREE.Group();
         this.createFallbackModel(tempGroup);
         this.model = tempGroup;
         
+        console.log('WoodenSword: Loading GLB model');
         // Then try to load the GLB model
         this.loadGLBModel();
+        console.log('=== WoodenSword: Constructor Complete ===');
+
+        // Animation properties
+        this.swingAnimation = {
+            duration: 0.3,
+            progress: 0,
+            isSwinging: false,
+            startRotation: new THREE.Euler(0, 0, 0),
+            endRotation: new THREE.Euler(-Math.PI / 4, 0, 0), // 45-degree swing
+            currentRotation: new THREE.Euler(0, 0, 0)
+        };
     }
 
     // Special method for training weapons
@@ -94,7 +109,9 @@ export class WoodenSword extends ItemSchema {
 
     // Update animation
     update(deltaTime) {
-        this.attackAnimation.update(deltaTime);
+        if (this.attackAnimation) {
+            this.attackAnimation.update(deltaTime);
+        }
     }
 
     // Create the 3D model of the wooden sword
@@ -186,15 +203,121 @@ export class WoodenSword extends ItemSchema {
         });
     }
 
-    // Override the onEquip method to ensure we have a valid model
+    // Override the onEquip method to position the sword correctly
     onEquip() {
+        console.log('WoodenSword: onEquip called');
         if (this.model instanceof Promise) {
+            console.log('WoodenSword: Model is a Promise, waiting for resolution');
             this.model.then(model => {
                 if (model instanceof THREE.Group) {
+                    console.log('WoodenSword: Promise resolved with valid model');
                     this.model = model;
                     this.attackAnimation.init(this.model);
+                    this.equipToCamera(model);
+                } else {
+                    console.error('WoodenSword: Promise resolved with invalid model type:', model);
                 }
             });
+        } else if (this.model instanceof THREE.Group) {
+            console.log('WoodenSword: Model is already a Group, equipping directly');
+            this.equipToCamera(this.model);
+        } else {
+            console.error('WoodenSword: Invalid model type:', this.model);
         }
+    }
+
+    // New method to equip the sword to the camera
+    equipToCamera(model) {
+        console.log('WoodenSword: equipToCamera called');
+        // Create a clone of the model for the equipped instance
+        this.equippedModel = model.clone();
+        
+        // Position the sword in front of the camera
+        this.equippedModel.position.set(0.5, -0.3, -0.5);
+        this.equippedModel.rotation.set(0, Math.PI / 4, 0, 'YXZ');
+        this.equippedModel.scale.set(0.5, 0.5, 0.5);
+
+        // Make sure the sword casts and receives shadows
+        this.equippedModel.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+
+        // Initialize the animation system with the equipped model
+        if (this.attackAnimation) {
+            this.attackAnimation.init(this.equippedModel);
+        }
+
+        // Find the player's camera and add the sword to it
+        const player = this.getOwner();
+        console.log('WoodenSword: Owner:', player);
+        if (player && player.camera) {
+            console.log('WoodenSword: Found player camera, adding sword');
+            player.camera.add(this.equippedModel);
+            console.log('WoodenSword: Sword added to camera');
+        } else {
+            console.error('WoodenSword: Could not find player camera to equip sword');
+            console.error('Player:', player);
+            console.error('Camera:', player ? player.camera : 'No camera');
+        }
+    }
+
+    // Override onUnequip to clean up
+    onUnequip() {
+        if (this.equippedModel) {
+            this.equippedModel.parent.remove(this.equippedModel);
+            this.equippedModel = null;
+        }
+    }
+
+    /**
+     * Start the swing animation
+     */
+    startSwing() {
+        if (this.equippedModel) {
+            this.attackAnimation.init(this.equippedModel);
+            this.attackAnimation.startAnimation();
+        } else {
+            console.warn('WoodenSword: Cannot start swing - no equipped model');
+        }
+    }
+
+    /**
+     * Update the swing animation
+     * @param {number} deltaTime - Time since last update
+     */
+    updateSwing(deltaTime) {
+        if (!this.swingAnimation.isSwinging) return;
+
+        this.swingAnimation.progress += deltaTime;
+        const progress = Math.min(this.swingAnimation.progress / this.swingAnimation.duration, 1);
+
+        // Use smooth easing function
+        const easedProgress = this.easeOutCubic(progress);
+
+        // Interpolate between start and end rotation
+        this.equippedModel.rotation.x = THREE.MathUtils.lerp(
+            this.swingAnimation.startRotation.x,
+            this.swingAnimation.endRotation.x,
+            easedProgress
+        );
+
+        // Reset when animation is complete
+        if (progress >= 1) {
+            this.swingAnimation.isSwinging = false;
+            this.swingAnimation.progress = 0;
+            this.equippedModel.rotation.copy(this.swingAnimation.startRotation);
+        }
+    }
+
+    /**
+     * Easing function for smooth animation
+     * @param {number} t - Progress value (0 to 1)
+     * @returns {number} Eased progress value
+     */
+    easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
     }
 } 

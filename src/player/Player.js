@@ -2,12 +2,18 @@ import { PlayerSchema } from './PlayerSchema';
 import { PlayerCamera } from '../systems/camera/PlayerCamera';
 import { WoodenSword } from '../items/weapons/WoodenSword';
 import { EquipmentSystem } from '../equipment/EquipmentSystem';
+import { PlayerSettings } from '../systems/settings/PlayerSettings';
 import * as THREE from 'three';
 
 export class Player extends PlayerSchema {
     constructor(config = {}) {
         console.log('=== Player: Starting Constructor ===');
         super(config);
+
+        // Initialize settings
+        console.log('Player: Initializing settings');
+        this.settings = new PlayerSettings();
+        console.log('Player: Settings initialized:', this.settings);
 
         // Initialize equipment system
         console.log('Player: Initializing equipment system');
@@ -37,37 +43,53 @@ export class Player extends PlayerSchema {
         this.cameraController.init(this.camera, this);
 
         // Create and equip the wooden sword
-        const woodenSword = new WoodenSword();
-        console.log('Player: Created wooden sword:', woodenSword);
+        this.woodenSword = new WoodenSword();
+        console.log('Player: Created wooden sword:', this.woodenSword);
+        
+        // Set the owner of the sword
+        this.woodenSword.setOwner(this);
         
         // Wait for the model to be ready before equipping
-        if (woodenSword.model instanceof Promise) {
+        if (this.woodenSword.model instanceof Promise) {
             console.log('Player: Waiting for sword model to load...');
-            woodenSword.model.then(model => {
+            this.woodenSword.model.then(model => {
                 console.log('Player: Sword model loaded:', model);
                 if (model instanceof THREE.Group) {
-                    woodenSword.model = model;
-                    this.equipmentSystem.equip(woodenSword, 'MAINHAND');
+                    this.woodenSword.model = model;
+                    this.equipSword();
                 } else {
                     console.error('Player: Invalid sword model type:', model);
                 }
             }).catch(error => {
                 console.error('Player: Error loading sword model:', error);
                 // Try to equip with fallback model if available
-                if (woodenSword.model instanceof THREE.Group) {
+                if (this.woodenSword.model instanceof THREE.Group) {
                     console.log('Player: Using fallback sword model');
-                    this.equipmentSystem.equip(woodenSword, 'MAINHAND');
+                    this.equipSword();
                 }
             });
-        } else if (woodenSword.model instanceof THREE.Group) {
+        } else if (this.woodenSword.model instanceof THREE.Group) {
             // If we already have a valid model, equip immediately
             console.log('Player: Using existing sword model');
-            this.equipmentSystem.equip(woodenSword, 'MAINHAND');
+            this.equipSword();
         } else {
             console.error('Player: No valid sword model available');
         }
         
         console.log('=== Player: Constructor Complete ===');
+    }
+
+    // New method to handle sword equipping
+    equipSword() {
+        console.log('Player: Equipping sword');
+        if (this.camera && this.woodenSword) {
+            this.equipmentSystem.equip(this.woodenSword, 'MAINHAND');
+            console.log('Player: Sword equipped successfully');
+        } else {
+            console.error('Player: Cannot equip sword - camera or sword not ready');
+            console.error('Camera:', this.camera);
+            console.error('Sword:', this.woodenSword);
+        }
     }
 
     /**
@@ -102,17 +124,28 @@ export class Player extends PlayerSchema {
      * @param {number} deltaTime - Time since last update
      */
     update(deltaTime) {
-  
-        super.update(deltaTime);
+        // Update input state
+        this.settings.update(deltaTime);
         
-        // Handle input
-        this.handleInput(deltaTime);
+        // Handle attack input
+        if (this.settings.shouldAttack() && this.woodenSword) {
+            this.woodenSword.startSwing();
+        }
         
-        // Update camera controller
+        // Update sword animation
+        if (this.woodenSword) {
+            this.woodenSword.update(deltaTime);
+        }
+        
+        // Update camera controller (handles movement and rotation)
         if (this.cameraController) {
-         
             this.cameraController.update();
         }
-       
+        
+        // Update jump
+        if (this.settings.shouldJump() && this.isGrounded) {
+            this.velocity.y = this.settings.jumpForce;
+            this.isGrounded = false;
+        }
     }
 } 

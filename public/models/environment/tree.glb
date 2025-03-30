@@ -1,0 +1,10 @@
+// This is a binary GLB file that contains a simple tree model
+// The model consists of:
+// 1. A cylinder for the trunk
+// 2. A cone for the foliage
+// 3. Materials for both parts
+// 4. Proper hierarchy and transformations
+
+// Note: This is a placeholder. You'll need to create an actual GLB file
+// using a 3D modeling tool like Blender or export from Three.js
+// The file should be placed in the public/models/environment directory 

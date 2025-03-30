@@ -218,6 +218,11 @@ export class PlayerCamera {
 
         // Keep the player mesh at ground level
         playerMesh.position.y = 0;
+        
+        // Set camera's world position to maintain eye height
+        const worldPosition = this.camera.getWorldPosition(new THREE.Vector3());
+        worldPosition.y = this.eyeHeight;
+        this.camera.position.copy(this.camera.parent.worldToLocal(worldPosition));
     }
 
     getCamera() {

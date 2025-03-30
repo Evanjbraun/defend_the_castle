@@ -21,6 +21,9 @@ export class ItemSchema extends THREE.EventDispatcher {
         this.icon = data.icon || 'defaultIcon.png';
         this.model = data.model || null;
         
+        // Owner reference
+        this.owner = null;
+        
         // Gameplay properties
         this.value = data.value || 0;
         this.weight = data.weight || 0.1;
@@ -412,5 +415,22 @@ export class ItemSchema extends THREE.EventDispatcher {
      */
     static fromJSON(json) {
         return new ItemSchema(json);
+    }
+    
+    /**
+     * Set the owner of this item
+     * @param {Object} owner - The owner object (usually a Player or NPC)
+     */
+    setOwner(owner) {
+        this.owner = owner;
+        this.dispatchEvent({ type: 'owner_changed', owner });
+    }
+    
+    /**
+     * Get the owner of this item
+     * @returns {Object|null} The owner object or null if no owner
+     */
+    getOwner() {
+        return this.owner;
     }
 } 

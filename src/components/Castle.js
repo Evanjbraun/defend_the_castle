@@ -39,10 +39,10 @@ export class Castle {
         });
 
         const positions = [
-            { x: 6, z: 6 },
-            { x: -6, z: 6 },
-            { x: 6, z: -6 },
-            { x: -6, z: -6 }
+            { x: 4, z: 4.3 },
+            { x: -4, z: 4 },
+            { x: 4, z: -4.3 },
+            { x: -4, z: -4.3 }
         ];
 
         positions.forEach(pos => {
