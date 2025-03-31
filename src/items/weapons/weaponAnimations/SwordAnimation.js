@@ -4,7 +4,7 @@ export class SwordAnimation {
     constructor() {
         this.isAnimating = false;
         this.startRotation = new THREE.Euler();
-        this.endRotation = new THREE.Euler(-Math.PI / 2, 0, 0); // 90 degrees forward slash
+        this.endRotation = new THREE.Euler(0, 0, -Math.PI); // Changed from -Math.PI/2 to -Math.PI for a full 180-degree slash
         this.duration = 0.3; // Animation duration in seconds
         this.elapsedTime = 0;
         this.weapon = null;
@@ -15,14 +15,6 @@ export class SwordAnimation {
         this.weapon = weaponMesh;
         // Store the original rotation
         this.originalRotation.copy(this.weapon.rotation);
-        
-        // Set pivot point to bottom of sword
-        if (this.weapon.geometry) {
-            this.weapon.geometry.center();
-            const box = new THREE.Box3().setFromObject(this.weapon);
-            const height = box.max.y - box.min.y;
-            this.weapon.position.y += height / 2;
-        }
     }
 
     startAnimation() {
@@ -44,17 +36,17 @@ export class SwordAnimation {
         if (progress <= 0.5) {
             // First half of animation - swing forward
             const swingProgress = progress * 2; // Scale to 0-1 for first half
-            this.weapon.rotation.x = THREE.MathUtils.lerp(
-                this.startRotation.x,
-                this.endRotation.x,
+            this.weapon.rotation.z = THREE.MathUtils.lerp(
+                this.startRotation.z,
+                this.endRotation.z,
                 this.easeOutQuad(swingProgress)
             );
         } else {
             // Second half of animation - return to original position
             const returnProgress = (progress - 0.5) * 2; // Scale to 0-1 for second half
-            this.weapon.rotation.x = THREE.MathUtils.lerp(
-                this.endRotation.x,
-                this.originalRotation.x,
+            this.weapon.rotation.z = THREE.MathUtils.lerp(
+                this.endRotation.z,
+                this.originalRotation.z,
                 this.easeInQuad(returnProgress)
             );
         }

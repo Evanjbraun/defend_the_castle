@@ -5,7 +5,6 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 export class WoodenSword extends ItemSchema {
     constructor() {
-        console.log('=== WoodenSword: Starting Constructor ===');
         super({
             // Basic properties
             id: 'weapon_wooden_sword',
@@ -57,31 +56,15 @@ export class WoodenSword extends ItemSchema {
         });
 
         // Additional wooden sword specific properties
-        this.woodType = 'Oak';
+        this.woodenType = 'Oak';
         this.trainingWeapon = true;
+        
+        // Initialize animation system
         this.attackAnimation = new SwordAnimation();
         this.equippedModel = null;
         
-        console.log('WoodenSword: Creating temporary model');
-        // Create a temporary model immediately
-        const tempGroup = new THREE.Group();
-        this.createFallbackModel(tempGroup);
-        this.model = tempGroup;
-        
-        console.log('WoodenSword: Loading GLB model');
-        // Then try to load the GLB model
-        this.loadGLBModel();
-        console.log('=== WoodenSword: Constructor Complete ===');
-
-        // Animation properties
-        this.swingAnimation = {
-            duration: 0.3,
-            progress: 0,
-            isSwinging: false,
-            startRotation: new THREE.Euler(0, 0, 0),
-            endRotation: new THREE.Euler(-Math.PI / 4, 0, 0), // 45-degree swing
-            currentRotation: new THREE.Euler(0, 0, 0)
-        };
+        // Initialize model as a Promise
+        this.model = this.createModel();
     }
 
     // Special method for training weapons
@@ -97,7 +80,6 @@ export class WoodenSword extends ItemSchema {
     // Initialize the weapon with its 3D model
     initModel(model) {
         this.model = model;
-        this.attackAnimation.init(this.model);
     }
 
     // Handle attack input
@@ -123,9 +105,11 @@ export class WoodenSword extends ItemSchema {
 
         // Return a promise that resolves with the sword group
         return new Promise((resolve, reject) => {
+            console.log('WoodenSword: Attempting to load GLB model from:', '/models/weapons/ironSword.glb');
             loader.load(
                 '/models/weapons/ironSword.glb',
                 (gltf) => {
+                    console.log('WoodenSword: GLB model loaded successfully');
                     // Get the sword model from the loaded GLB
                     const swordModel = gltf.scene;
                     
@@ -138,16 +122,16 @@ export class WoodenSword extends ItemSchema {
                     // Add the model to the group
                     swordGroup.add(swordModel);
                     
-                    // Initialize the attack animation with the loaded model
-                    this.attackAnimation.init(swordGroup);
                     resolve(swordGroup);
                 },
                 // Progress callback
                 (progress) => {
                     const percent = (progress.loaded / progress.total * 100);
+                    console.log('WoodenSword: Loading progress:', percent.toFixed(2) + '%');
                 },
                 // Error callback
                 (error) => {
+                    console.error('WoodenSword: Error loading GLB model:', error);
                     // Create a fallback basic sword model if loading fails
                     this.createFallbackModel(swordGroup);
                     resolve(swordGroup); // Resolve with fallback model instead of rejecting
@@ -185,21 +169,30 @@ export class WoodenSword extends ItemSchema {
         swordGroup.add(blade);
         swordGroup.add(handle);
         swordGroup.add(guard);
-
-        // Initialize the attack animation with the fallback model
-        this.attackAnimation.init(swordGroup);
     }
 
     // Load the GLB model
     loadGLBModel() {
+        console.log('WoodenSword: Starting GLB model loading process');
         this.createModel().then(model => {
+            console.log('WoodenSword: Model promise resolved');
             if (model instanceof THREE.Group) {
+                console.log('WoodenSword: Model is a valid THREE.Group');
                 this.model = model;
-                this.attackAnimation.init(this.model);
                 this.dispatchEvent({ type: 'modelReady', model: this.model });
+            } else {
+                console.error('WoodenSword: Model is not a valid THREE.Group:', model);
+                // Create fallback model only if GLB loading failed
+                const tempGroup = new THREE.Group();
+                this.createFallbackModel(tempGroup);
+                this.model = tempGroup;
             }
         }).catch(error => {
-            // Keep fallback model
+            console.error('WoodenSword: Error in loadGLBModel:', error);
+            // Create fallback model only if GLB loading failed
+            const tempGroup = new THREE.Group();
+            this.createFallbackModel(tempGroup);
+            this.model = tempGroup;
         });
     }
 
@@ -228,14 +221,13 @@ export class WoodenSword extends ItemSchema {
 
     // New method to equip the sword to the camera
     equipToCamera(model) {
-        console.log('WoodenSword: equipToCamera called');
         // Create a clone of the model for the equipped instance
         this.equippedModel = model.clone();
         
         // Position the sword in front of the camera
-        this.equippedModel.position.set(0.5, -0.3, -0.5);
-        this.equippedModel.rotation.set(0, Math.PI / 4, 0, 'YXZ');
-        this.equippedModel.scale.set(0.5, 0.5, 0.5);
+        this.equippedModel.position.set(0.2, -.5, -0.4);
+        this.equippedModel.rotation.set(.5, 1.4, -1.7, 'YXZ');
+        this.equippedModel.scale.set(1.9, 1.9, 1.9);
 
         // Make sure the sword casts and receives shadows
         this.equippedModel.traverse((child) => {
@@ -252,15 +244,8 @@ export class WoodenSword extends ItemSchema {
 
         // Find the player's camera and add the sword to it
         const player = this.getOwner();
-        console.log('WoodenSword: Owner:', player);
         if (player && player.camera) {
-            console.log('WoodenSword: Found player camera, adding sword');
             player.camera.add(this.equippedModel);
-            console.log('WoodenSword: Sword added to camera');
-        } else {
-            console.error('WoodenSword: Could not find player camera to equip sword');
-            console.error('Player:', player);
-            console.error('Camera:', player ? player.camera : 'No camera');
         }
     }
 
@@ -276,48 +261,8 @@ export class WoodenSword extends ItemSchema {
      * Start the swing animation
      */
     startSwing() {
-        if (this.equippedModel) {
-            this.attackAnimation.init(this.equippedModel);
+        if (this.equippedModel && this.attackAnimation) {
             this.attackAnimation.startAnimation();
-        } else {
-            console.warn('WoodenSword: Cannot start swing - no equipped model');
         }
-    }
-
-    /**
-     * Update the swing animation
-     * @param {number} deltaTime - Time since last update
-     */
-    updateSwing(deltaTime) {
-        if (!this.swingAnimation.isSwinging) return;
-
-        this.swingAnimation.progress += deltaTime;
-        const progress = Math.min(this.swingAnimation.progress / this.swingAnimation.duration, 1);
-
-        // Use smooth easing function
-        const easedProgress = this.easeOutCubic(progress);
-
-        // Interpolate between start and end rotation
-        this.equippedModel.rotation.x = THREE.MathUtils.lerp(
-            this.swingAnimation.startRotation.x,
-            this.swingAnimation.endRotation.x,
-            easedProgress
-        );
-
-        // Reset when animation is complete
-        if (progress >= 1) {
-            this.swingAnimation.isSwinging = false;
-            this.swingAnimation.progress = 0;
-            this.equippedModel.rotation.copy(this.swingAnimation.startRotation);
-        }
-    }
-
-    /**
-     * Easing function for smooth animation
-     * @param {number} t - Progress value (0 to 1)
-     * @returns {number} Eased progress value
-     */
-    easeOutCubic(t) {
-        return 1 - Math.pow(1 - t, 3);
     }
 } 

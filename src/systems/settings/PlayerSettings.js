@@ -74,7 +74,7 @@ export class PlayerSettings {
      */
     shouldAttack() {
         const currentTime = performance.now() / 1000;
-        if (this.inputManager.isMouseButtonPressed('LEFT') && 
+        if (this.inputManager.isMouseButtonPressed('ATTACK') && 
             currentTime - this.lastAttackTime >= this.attackCooldown) {
             this.lastAttackTime = currentTime;
             this.isAttacking = true;

@@ -10,23 +10,17 @@ export class Player extends PlayerSchema {
         console.log('=== Player: Starting Constructor ===');
         super(config);
 
-        // Initialize settings
-        console.log('Player: Initializing settings');
+
         this.settings = new PlayerSettings();
-        console.log('Player: Settings initialized:', this.settings);
 
-        // Initialize equipment system
-        console.log('Player: Initializing equipment system');
+
         this.equipmentSystem = new EquipmentSystem(this);
-        console.log('Player: Equipment system initialized:', this.equipmentSystem);
 
-        // Create the player's model
-        console.log('Player: Creating model');
+
         this.mesh = this.createModel();
-        console.log('Player: Model created:', this.mesh);
 
-        // Initialize camera
-        console.log('Player: Creating camera');
+
+   
         this.camera = new THREE.PerspectiveCamera(
             75,
             window.innerWidth / window.innerHeight,
