@@ -63,6 +63,10 @@ export class Game {
         try {
             console.log('=== Game: Starting Initialization ===');
             
+            // Set game instance on window object
+            window.game = this;
+            console.log('Game: Set game instance on window object');
+            
             // Initialize settings first
             this.settings = new PlayerSettings();
             
@@ -70,16 +74,16 @@ export class Game {
             console.log('Game: Creating scene');
             this.scene = new Scene();
             this.scene.init();
-
+            
             // Initialize camera
             console.log('Game: Creating camera');
             this.camera = new THREE.PerspectiveCamera(
                 75,
-                window.innerWidth / window.innerHeight, 
+                window.innerWidth / window.innerHeight,
                 0.1,
                 2000
             );
-
+            
             // Initialize renderer
             console.log('Game: Creating renderer');
             this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -88,7 +92,7 @@ export class Game {
             this.renderer.setClearColor(0x87CEEB, 1);
             this.renderer.sortObjects = true;
             document.getElementById('game-container').appendChild(this.renderer.domElement);
-
+            
             // Initialize game components
             console.log('Game: Creating castle');
             this.castle = new Castle();
@@ -99,6 +103,7 @@ export class Game {
             console.log('Game: Creating player');
             this.player = new Player();
             console.log('Game: Player created:', this.player);
+            this.player.setGame(this); // Set game instance on player
             this.player.mesh.castShadow = true;
             this.player.mesh.receiveShadow = true;
             this.scene.add(this.player.mesh);
@@ -133,9 +138,28 @@ export class Game {
             });
             
             // Wait for goblin to be fully initialized
+            console.log('Game: Initializing goblin...');
             const goblinMesh = await this.goblin.init(this.scene.getScene());
             if (goblinMesh) {
-                console.log('Game: Goblin added to scene');
+                console.log('Game: Goblin mesh added to scene successfully');
+                // Add goblin to npcs array
+                this.npcs.push(this.goblin);
+                console.log('Game: Goblin added to npcs array');
+                
+                // Ensure the goblin is visible
+                goblinMesh.visible = true;
+                goblinMesh.position.set(5, 0, 5);
+                goblinMesh.rotation.set(0, Math.PI, 0);
+                goblinMesh.scale.set(0.5, 0.5, 0.5);
+                
+                // Add a spotlight to illuminate the goblin
+                const goblinLight = new THREE.SpotLight(0xffffff, 1);
+                goblinLight.position.set(5, 10, 5);
+                goblinLight.angle = Math.PI / 4;
+                goblinLight.penumbra = 0.1;
+                goblinLight.decay = 2;
+                goblinLight.distance = 20;
+                this.scene.getScene().add(goblinLight);
             } else {
                 console.error('Game: Failed to initialize goblin mesh');
             }
@@ -150,7 +174,7 @@ export class Game {
                 minDistanceBetweenTrees: 5
             });
             await this.treeManager.init();
-
+            
             // Initialize game menu
             this.gameMenu = new GameMenu(this);
             this.gameMenu.init(this.settings);

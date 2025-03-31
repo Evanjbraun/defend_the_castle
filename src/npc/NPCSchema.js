@@ -123,8 +123,10 @@ export class NPCSchema {
 
     // Combat methods
     takeDamage(amount) {
+        console.log(`NPCSchema: Taking damage: ${amount}`);
         const actualDamage = Math.max(0, amount - this.defense);
         this.health = Math.max(0, this.health - actualDamage);
+        console.log(`NPCSchema: Health after damage: ${this.health}/${this.maxHealth}`);
         
         if (this.health <= 0) {
             this.die();

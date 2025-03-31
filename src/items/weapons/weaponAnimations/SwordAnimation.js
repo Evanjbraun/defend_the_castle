@@ -9,6 +9,9 @@ export class SwordAnimation {
         this.elapsedTime = 0;
         this.weapon = null;
         this.originalRotation = new THREE.Euler();
+        this.onSwingCallback = null;
+        this.lastCheckTime = 0;
+        this.checkInterval = 0.05; // Check every 50ms
     }
 
     init(weaponMesh) {
@@ -17,10 +20,15 @@ export class SwordAnimation {
         this.originalRotation.copy(this.weapon.rotation);
     }
 
+    setOnSwingCallback(callback) {
+        this.onSwingCallback = callback;
+    }
+
     startAnimation() {
         if (!this.isAnimating) {
             this.isAnimating = true;
             this.elapsedTime = 0;
+            this.lastCheckTime = 0;
             // Store current rotation as start
             this.startRotation.copy(this.weapon.rotation);
         }
@@ -41,6 +49,19 @@ export class SwordAnimation {
                 this.endRotation.z,
                 this.easeOutQuad(swingProgress)
             );
+
+            // Check for enemies during the forward swing
+            if (this.onSwingCallback) {
+                // Check more frequently during the swing
+                if (swingProgress > 0.1 && swingProgress < 0.9) {
+                    const currentTime = performance.now();
+                    if (currentTime - this.lastCheckTime >= this.checkInterval * 1000) {
+                        console.log('SwordAnimation: Checking for enemies during swing, progress:', swingProgress.toFixed(2));
+                        this.onSwingCallback();
+                        this.lastCheckTime = currentTime;
+                    }
+                }
+            }
         } else {
             // Second half of animation - return to original position
             const returnProgress = (progress - 0.5) * 2; // Scale to 0-1 for second half

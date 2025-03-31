@@ -142,4 +142,21 @@ export class Player extends PlayerSchema {
             this.isGrounded = false;
         }
     }
+
+    /**
+     * Set the game instance reference
+     * @param {Game} game - The game instance
+     */
+    setGame(game) {
+        console.log('Player: Setting game instance:', game);
+        this.game = game;
+    }
+
+    /**
+     * Get the game instance
+     * @returns {Game} The game instance
+     */
+    getGame() {
+        return this.game;
+    }
 } 

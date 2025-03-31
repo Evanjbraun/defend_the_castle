@@ -32,7 +32,7 @@ export class WoodenSword extends ItemSchema {
             // Stats
             stats: {
                 // Offensive stats
-                attackPower: 3,
+                attackPower: 6,
                 attackSpeed: 1.2, // Slightly faster than average
                 criticalChance: 0.02, // 2% crit chance
                 criticalDamage: 1.5, // 150% crit damage
@@ -45,7 +45,7 @@ export class WoodenSword extends ItemSchema {
             // Combat mechanics
             attackType: 'SLASH',
             damageType: 'PHYSICAL',
-            range: 1.5, // 1.5 units reach
+            range: 3.5, // 1.5 units reach
             areaOfEffect: 0,
 
             // Requirements
@@ -82,11 +82,98 @@ export class WoodenSword extends ItemSchema {
         this.model = model;
     }
 
-    // Handle attack input
+    // Override onAttack to handle combat
     onAttack() {
-        if (!this.attackAnimation.isPlaying()) {
-            this.attackAnimation.startAnimation();
+        if (!this.equippedModel) {
+            return;
         }
+        this.playAnimation();
+    }
+
+    checkForEnemiesInRange() {
+        const enemies = this.getEnemiesInScene();
+
+        // Get the player (owner) of the sword
+        const player = this.getOwner();
+        if (!player || !player.camera) {
+            return;
+        }
+
+        // Get current camera world position
+        const cameraPosition = new THREE.Vector3();
+        player.camera.getWorldPosition(cameraPosition);
+
+        enemies.forEach(enemy => {
+            if (!enemy.mesh) {
+                return;
+            }
+
+            const enemyPosition = enemy.mesh.position.clone();
+            const distance = this.getDistanceToEnemy(enemy);
+            
+            if (distance <= this.range) {
+                const damage = this.calculateDamage();
+                enemy.takeDamage(damage);
+            }
+        });
+    }
+
+    getEnemiesInScene() {
+        // Get the player (owner) of the sword
+        const player = this.getOwner();
+        if (!player) {
+            return [];
+        }
+
+        // Get the game instance from the player
+        const game = player.game;
+        if (!game) {
+            return [];
+        }
+        
+        const goblin = game.goblin;
+        if (goblin && !goblin.isDead) {
+            return [goblin];
+        }
+        
+        return [];
+    }
+
+    getDistanceToEnemy(enemy) {
+        if (!enemy || !enemy.mesh) {
+            return Infinity;
+        }
+        
+        // Get the player (owner) of the sword
+        const player = this.getOwner();
+        if (!player || !player.camera) {
+            return Infinity;
+        }
+        
+        // Get current positions
+        const cameraPosition = new THREE.Vector3();
+        player.camera.getWorldPosition(cameraPosition);
+        const enemyPosition = enemy.mesh.position.clone();
+        
+        // Calculate distance using the current positions
+        return cameraPosition.distanceTo(enemyPosition);
+    }
+
+    calculateDamage() {
+        // Base damage from weapon
+        let damage = this.stats.attackPower;
+
+        // Add critical hit chance
+        if (Math.random() < this.stats.criticalChance) {
+            damage *= this.stats.criticalDamage;
+        }
+
+        // Add some randomness (±10%)
+        const randomFactor = 0.9 + (Math.random() * 0.2);
+        damage *= randomFactor;
+
+        // Round to nearest integer
+        return Math.round(damage);
     }
 
     // Update animation
@@ -105,11 +192,9 @@ export class WoodenSword extends ItemSchema {
 
         // Return a promise that resolves with the sword group
         return new Promise((resolve, reject) => {
-            console.log('WoodenSword: Attempting to load GLB model from:', '/models/weapons/ironSword.glb');
             loader.load(
                 '/models/weapons/ironSword.glb',
                 (gltf) => {
-                    console.log('WoodenSword: GLB model loaded successfully');
                     // Get the sword model from the loaded GLB
                     const swordModel = gltf.scene;
                     
@@ -126,12 +211,9 @@ export class WoodenSword extends ItemSchema {
                 },
                 // Progress callback
                 (progress) => {
-                    const percent = (progress.loaded / progress.total * 100);
-                    console.log('WoodenSword: Loading progress:', percent.toFixed(2) + '%');
                 },
                 // Error callback
                 (error) => {
-                    console.error('WoodenSword: Error loading GLB model:', error);
                     // Create a fallback basic sword model if loading fails
                     this.createFallbackModel(swordGroup);
                     resolve(swordGroup); // Resolve with fallback model instead of rejecting
@@ -173,22 +255,17 @@ export class WoodenSword extends ItemSchema {
 
     // Load the GLB model
     loadGLBModel() {
-        console.log('WoodenSword: Starting GLB model loading process');
         this.createModel().then(model => {
-            console.log('WoodenSword: Model promise resolved');
             if (model instanceof THREE.Group) {
-                console.log('WoodenSword: Model is a valid THREE.Group');
                 this.model = model;
                 this.dispatchEvent({ type: 'modelReady', model: this.model });
             } else {
-                console.error('WoodenSword: Model is not a valid THREE.Group:', model);
                 // Create fallback model only if GLB loading failed
                 const tempGroup = new THREE.Group();
                 this.createFallbackModel(tempGroup);
                 this.model = tempGroup;
             }
         }).catch(error => {
-            console.error('WoodenSword: Error in loadGLBModel:', error);
             // Create fallback model only if GLB loading failed
             const tempGroup = new THREE.Group();
             this.createFallbackModel(tempGroup);
@@ -198,24 +275,18 @@ export class WoodenSword extends ItemSchema {
 
     // Override the onEquip method to position the sword correctly
     onEquip() {
-        console.log('WoodenSword: onEquip called');
         if (this.model instanceof Promise) {
-            console.log('WoodenSword: Model is a Promise, waiting for resolution');
             this.model.then(model => {
                 if (model instanceof THREE.Group) {
-                    console.log('WoodenSword: Promise resolved with valid model');
                     this.model = model;
                     this.attackAnimation.init(this.model);
+                    this.attackAnimation.setOnSwingCallback(() => this.checkForEnemiesInRange());
                     this.equipToCamera(model);
-                } else {
-                    console.error('WoodenSword: Promise resolved with invalid model type:', model);
                 }
             });
         } else if (this.model instanceof THREE.Group) {
-            console.log('WoodenSword: Model is already a Group, equipping directly');
+            this.attackAnimation.setOnSwingCallback(() => this.checkForEnemiesInRange());
             this.equipToCamera(this.model);
-        } else {
-            console.error('WoodenSword: Invalid model type:', this.model);
         }
     }
 
@@ -263,6 +334,7 @@ export class WoodenSword extends ItemSchema {
     startSwing() {
         if (this.equippedModel && this.attackAnimation) {
             this.attackAnimation.startAnimation();
+            this.checkForEnemiesInRange();
         }
     }
 } 
