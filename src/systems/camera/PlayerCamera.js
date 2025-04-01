@@ -197,7 +197,8 @@ export class PlayerCamera {
         right.normalize();
 
         // Store current position of the player mesh
-        const newPosition = playerMesh.position.clone();
+        const currentPosition = playerMesh.position.clone();
+        const newPosition = currentPosition.clone();
 
         // Calculate new position
         if (this.moveForward || this.moveBackward) {
@@ -209,8 +210,35 @@ export class PlayerCamera {
 
         // Check if new position is within bounds
         if (this.isWithinBounds(newPosition)) {
-            // Update position if within bounds
-            playerMesh.position.copy(newPosition);
+            // Check for castle wall collisions
+            const castle = this.game.castle;
+            if (castle) {
+                // Check if the new position would cause a collision
+                if (castle.checkCollision(newPosition, 1.5)) {
+                    // If there's a collision, try to slide along walls
+                    const slidePosition = newPosition.clone();
+                    
+                    // Try moving only in X direction
+                    slidePosition.x = newPosition.x;
+                    slidePosition.z = currentPosition.z;
+                    if (!castle.checkCollision(slidePosition, 1.5)) {
+                        playerMesh.position.copy(slidePosition);
+                    } else {
+                        // Try moving only in Z direction
+                        slidePosition.x = currentPosition.x;
+                        slidePosition.z = newPosition.z;
+                        if (!castle.checkCollision(slidePosition, 1.5)) {
+                            playerMesh.position.copy(slidePosition);
+                        }
+                    }
+                } else {
+                    // If no collision, update position
+                    playerMesh.position.copy(newPosition);
+                }
+            } else {
+                // If no castle, just update position
+                playerMesh.position.copy(newPosition);
+            }
         } else {
             // Clamp position to bounds if outside
             playerMesh.position.copy(this.clampToBounds(newPosition));

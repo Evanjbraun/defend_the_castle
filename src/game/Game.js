@@ -8,6 +8,8 @@ import { PlayerSettings } from '../systems/settings/PlayerSettings';
 import { GameMenu } from '../ui/GameMenu';
 import { AudioSystem } from '../systems/audio/AudioSystem';
 import { TreeManager } from '../entities/environment/TreeManager';
+import { WaveManager } from '../systems/wave/WaveManager';
+import { CastleHealthBar } from '../ui/CastleHealthBar';
 
 export class Game {
     constructor() {
@@ -24,12 +26,13 @@ export class Game {
         this.deltaTime = 0;
         this.castle = null;
         this.crosshair = null;
-        this.goblin = null;
         this.settings = null;
         this.gameMenu = null;
         this.isInitialized = false;
         this.isPaused = false;
         this.treeManager = null;
+        this.waveManager = null;
+        this.castleHealthBar = null;
         
         // Initialize audio system
         this.audioSystem = new AudioSystem();
@@ -93,11 +96,19 @@ export class Game {
             this.renderer.sortObjects = true;
             document.getElementById('game-container').appendChild(this.renderer.domElement);
             
-            // Initialize game components
+            // Initialize castle
             console.log('Game: Creating castle');
             this.castle = new Castle();
-            this.castle.init();
+            await this.castle.init();
             this.scene.add(this.castle.getMesh());
+
+            // Initialize castle health bar
+            this.castleHealthBar = new CastleHealthBar(this.castle);
+
+            // Initialize wave manager
+            console.log('Game: Creating wave manager');
+            this.waveManager = new WaveManager(this.scene.getScene(), this.castle);
+            console.log('Game: Wave manager created');
 
             // Initialize player
             console.log('Game: Creating player');
@@ -106,6 +117,9 @@ export class Game {
             this.player.setGame(this); // Set game instance on player
             this.player.mesh.castShadow = true;
             this.player.mesh.receiveShadow = true;
+            
+            // Position player outside the castle
+            this.player.mesh.position.set(0, 0, 30); // 30 units away from castle center
             this.scene.add(this.player.mesh);
             console.log('Game: Player added to scene');
 
@@ -130,40 +144,6 @@ export class Game {
             spotLight.castShadow = true;
             this.scene.add(spotLight);
 
-            // Initialize goblin
-            console.log('Game: Creating goblin');
-            this.goblin = new Goblin({
-                position: new THREE.Vector3(5, 0, 5), // Position the goblin 5 units away from center
-                rotation: new THREE.Euler(0, Math.PI, 0, 'YXZ') // Face the center with explicit rotation order
-            });
-            
-            // Wait for goblin to be fully initialized
-            console.log('Game: Initializing goblin...');
-            const goblinMesh = await this.goblin.init(this.scene.getScene());
-            if (goblinMesh) {
-                console.log('Game: Goblin mesh added to scene successfully');
-                // Add goblin to npcs array
-                this.npcs.push(this.goblin);
-                console.log('Game: Goblin added to npcs array');
-                
-                // Ensure the goblin is visible
-                goblinMesh.visible = true;
-                goblinMesh.position.set(5, 0, 5);
-                goblinMesh.rotation.set(0, Math.PI, 0);
-                goblinMesh.scale.set(0.5, 0.5, 0.5);
-                
-                // Add a spotlight to illuminate the goblin
-                const goblinLight = new THREE.SpotLight(0xffffff, 1);
-                goblinLight.position.set(5, 10, 5);
-                goblinLight.angle = Math.PI / 4;
-                goblinLight.penumbra = 0.1;
-                goblinLight.decay = 2;
-                goblinLight.distance = 20;
-                this.scene.getScene().add(goblinLight);
-            } else {
-                console.error('Game: Failed to initialize goblin mesh');
-            }
-
             // Initialize tree manager
             console.log('Game: Creating tree manager');
             this.treeManager = new TreeManager(this.scene.getScene(), {
@@ -186,6 +166,11 @@ export class Game {
             // Start background music
             this.audioSystem.playMusic('/music/main_theme.mp3', 0.5, true);
 
+            // Start the first wave
+            console.log('Game: Starting first wave');
+            this.waveManager.startWave();
+            console.log('Game: First wave started');
+
             // Mark as initialized
             this.isInitialized = true;
             
@@ -207,9 +192,15 @@ export class Game {
         this.castle.update();
         this.player.update(deltaTime);
         
-        // Update goblin
-        if (this.goblin) {
-            this.goblin.update(deltaTime);
+        // Update wave manager
+        if (this.waveManager) {
+         
+            this.waveManager.update(deltaTime);
+        }
+
+        // Update castle health bar
+        if (this.castleHealthBar) {
+            this.castleHealthBar.update();
         }
 
         // Update trees

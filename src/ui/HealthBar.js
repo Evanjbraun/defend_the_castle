@@ -74,7 +74,7 @@ export class HealthBar {
     updatePosition(position) {
         this.sprite.position.copy(position);
         // Position slightly above the entity
-        this.sprite.position.y += 0.5;
+        this.sprite.position.y += 0.1;
     }
 
     /**

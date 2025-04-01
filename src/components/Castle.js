@@ -1,80 +1,97 @@
 import * as THREE from 'three';
+import { CastleWalls } from '../entities/structures/CastleWalls';
 
 export class Castle {
     constructor() {
         this.mesh = null;
+        this.health = 100;
         this.maxHealth = 100;
-        this.currentHealth = this.maxHealth;
-        this.isInitialized = false;
+        this.isDestroyed = false;
+        this.castleWalls = null;
     }
 
-    init() {
-        // Create castle geometry
-        const castleGeometry = new THREE.BoxGeometry(10, 15, 10);
-        const castleMaterial = new THREE.MeshStandardMaterial({
-            color: 0x808080,
-            roughness: 0.7,
-            metalness: 0.3
-        });
-        this.mesh = new THREE.Mesh(castleGeometry, castleMaterial);
-        this.mesh.castShadow = true;
-        this.mesh.receiveShadow = true;
-
-        // Add towers
-        this.addTowers();
-
-        // Position the castle
-        this.mesh.position.set(0, 7.5, 0);
-
-        this.isInitialized = true;
-    }
-
-    addTowers() {
-        // Add corner towers
-        const towerGeometry = new THREE.CylinderGeometry(1, 1, 5, 8);
-        const towerMaterial = new THREE.MeshStandardMaterial({
-            color: 0x666666,
-            roughness: 0.8,
-            metalness: 0.2
-        });
-
-        const positions = [
-            { x: 4, z: 4.3 },
-            { x: -4, z: 4 },
-            { x: 4, z: -4.3 },
-            { x: -4, z: -4.3 }
-        ];
-
-        positions.forEach(pos => {
-            const tower = new THREE.Mesh(towerGeometry, towerMaterial);
-            tower.position.set(pos.x, 10, pos.z);
-            tower.castShadow = true;
-            tower.receiveShadow = true;
-            this.mesh.add(tower);
-        });
-    }
-
-    update() {
-        if (!this.isInitialized) return;
-
-        // Update castle state
-        // This will be implemented when we have game state management
-    }
-
-    takeDamage(amount) {
-        this.currentHealth = Math.max(0, this.currentHealth - amount);
-        return this.currentHealth <= 0;
-    }
-
-    heal(amount) {
-        this.currentHealth = Math.min(this.maxHealth, this.currentHealth + amount);
-    }
-
-    getHealthPercentage() {
-        return (this.currentHealth / this.maxHealth) * 100;
+    async init() {
+        try {
+            // Create castle walls
+            this.castleWalls = new CastleWalls({
+                size: 20,
+                wallHeight: 8,
+                debug: false
+            });
+            
+            // Get the mesh from castle walls
+            this.mesh = this.castleWalls.build();
+            this.mesh.position.set(0, 0, 0);
+        } catch (error) {
+            console.error('Error initializing castle:', error);
+            // Create a simple fallback castle
+            const geometry = new THREE.BoxGeometry(10, 15, 10);
+            const material = new THREE.MeshStandardMaterial({ color: 0x808080 });
+            this.mesh = new THREE.Mesh(geometry, material);
+            this.mesh.position.set(0, 7.5, 0);
+            this.mesh.castShadow = true;
+            this.mesh.receiveShadow = true;
+        }
     }
 
     getMesh() {
         return this.mesh;
+    }
+
+    getPosition() {
+        return this.mesh.position;
+    }
+
+    takeDamage(amount) {
+        if (this.isDestroyed) return 0;
+        
+        this.health = Math.max(0, this.health - amount);
+        
+        if (this.health <= 0) {
+            this.health = 0;
+            this.isDestroyed = true;
+            this.onDestroyed();
+        }
+        
+        return amount;
+    }
+
+    heal(amount) {
+        if (this.isDestroyed) return 0;
+        
+        this.health = Math.min(this.maxHealth, this.health + amount);
+        return amount;
+    }
+
+    getHealth() {
+        return this.health;
+    }
+
+    getMaxHealth() {
+        return this.maxHealth;
+    }
+
+    isAlive() {
+        return !this.isDestroyed;
+    }
+
+    onDestroyed() {
+        // Dispatch event when castle is destroyed
+        const event = new CustomEvent('castleDestroyed', {
+            detail: { castle: this }
+        });
+        window.dispatchEvent(event);
+    }
+
+    update() {
+        // Update castle state if needed
+        // For now, this is empty as the castle doesn't need any per-frame updates
+    }
+
+    checkCollision(position, radius) {
+        if (this.castleWalls) {
+            return this.castleWalls.checkCollision(position, radius);
+        }
+        return false;
     }
 } 

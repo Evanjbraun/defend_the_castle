@@ -65,20 +65,36 @@ export class NPCSchema {
             this.isInitialized = true;
             return this.mesh;
         } catch (error) {
-            console.error(`Error initializing ${this.name}:`, error);
             return null;
         }
     }
 
     // Create the NPC's 3D model - to be overridden by specific NPC types
     createModel() {
-        console.warn('createModel() not implemented for this NPC type');
+        // Method to be implemented by child classes
     }
 
     // Update method called every frame
     update(deltaTime) {
-        this.updateAnimation(deltaTime);
-        this.updateAI(deltaTime);
+        if (this.isDead) return;
+
+        // Update animations
+        if (this.currentAnimation) {
+            this.currentAnimation.update(deltaTime);
+        }
+
+        // Update health bar position
+        if (this.healthBar) {
+            this.healthBar.updatePosition(this.mesh.position);
+        }
+
+        // Update combat state
+        if (this.isInCombat) {
+            this.combatTimer += deltaTime;
+            if (this.combatTimer >= this.combatTimeout) {
+                this.exitCombat();
+            }
+        }
     }
 
     // Update NPC animations
@@ -128,7 +144,8 @@ export class NPCSchema {
         this.health = Math.max(0, this.health - actualDamage);
         console.log(`NPCSchema: Health after damage: ${this.health}/${this.maxHealth}`);
         
-        if (this.health <= 0) {
+        if (this.health <= 0 && !this.isDead) {
+            console.log('NPCSchema: Health reached zero, calling die()');
             this.die();
         }
         
@@ -140,9 +157,21 @@ export class NPCSchema {
     }
 
     die() {
-        this.isAlive = false;
-        this.state = 'DEAD';
-        // Additional death handling to be implemented by specific NPC types
+        if (this.isDead) return;
+        
+        this.isDead = true;
+        this.isInCombat = false;
+        
+        // Clear combat timeout
+        if (this.combatTimeout) {
+            clearTimeout(this.combatTimeout);
+            this.combatTimeout = null;
+        }
+        
+        // Hide health bar
+        if (this.healthBar) {
+            this.healthBar.hide();
+        }
     }
 
     // Utility methods

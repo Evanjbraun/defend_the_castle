@@ -21,6 +21,9 @@ export class CastleWalls {
         
         // Debug mode
         this.debug = config.debug || false;
+
+        // Create collision boxes for walls
+        this.collisionBoxes = [];
     }
     
     /**
@@ -38,6 +41,26 @@ export class CastleWalls {
         }
         
         return this.group;
+    }
+    
+    /**
+     * Check if a position collides with any castle walls
+     * @param {THREE.Vector3} position - The position to check
+     * @param {number} playerRadius - The radius of the player's collision sphere
+     * @returns {boolean} - Whether there is a collision
+     */
+    checkCollision(position, playerRadius) {
+        // Create a sphere around the player position
+        const playerSphere = new THREE.Sphere(position, playerRadius);
+        
+        // Check each collision box
+        for (const box of this.collisionBoxes) {
+            // Check if the sphere intersects with the box
+            if (box.intersectsSphere(playerSphere)) {
+                return true;
+            }
+        }
+        return false;
     }
     
     /**
@@ -60,6 +83,11 @@ export class CastleWalls {
         northWall.receiveShadow = true;
         this.group.add(northWall);
         
+        // Add collision box for north wall
+        const northBox = new THREE.Box3().setFromObject(northWall);
+        northBox.expandByScalar(0.5); // Add some padding
+        this.collisionBoxes.push(northBox);
+        
         // South wall
         const southWallGeometry = new THREE.BoxGeometry(this.castleSize, this.wallHeight, 1);
         const southWall = new THREE.Mesh(southWallGeometry, wallMaterial);
@@ -67,6 +95,11 @@ export class CastleWalls {
         southWall.castShadow = true;
         southWall.receiveShadow = true;
         this.group.add(southWall);
+        
+        // Add collision box for south wall
+        const southBox = new THREE.Box3().setFromObject(southWall);
+        southBox.expandByScalar(0.5);
+        this.collisionBoxes.push(southBox);
         
         // East wall
         const eastWallGeometry = new THREE.BoxGeometry(1, this.wallHeight, this.castleSize);
@@ -76,6 +109,11 @@ export class CastleWalls {
         eastWall.receiveShadow = true;
         this.group.add(eastWall);
         
+        // Add collision box for east wall
+        const eastBox = new THREE.Box3().setFromObject(eastWall);
+        eastBox.expandByScalar(0.5);
+        this.collisionBoxes.push(eastBox);
+        
         // West wall
         const westWallGeometry = new THREE.BoxGeometry(1, this.wallHeight, this.castleSize);
         const westWall = new THREE.Mesh(westWallGeometry, wallMaterial);
@@ -83,6 +121,11 @@ export class CastleWalls {
         westWall.castShadow = true;
         westWall.receiveShadow = true;
         this.group.add(westWall);
+        
+        // Add collision box for west wall
+        const westBox = new THREE.Box3().setFromObject(westWall);
+        westBox.expandByScalar(0.5);
+        this.collisionBoxes.push(westBox);
     }
     
     /**
@@ -131,6 +174,11 @@ export class CastleWalls {
         
         // Add roof to tower
         tower.add(roof);
+
+        // Add collision box for tower
+        const towerBox = new THREE.Box3().setFromObject(tower);
+        towerBox.expandByScalar(0.5); // Add some padding
+        this.collisionBoxes.push(towerBox);
     }
     
     /**

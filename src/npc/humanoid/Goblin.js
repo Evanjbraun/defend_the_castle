@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { NPCSchema } from '../NPCSchema';
 import { HealthBar } from '../../ui/HealthBar';
-import { FloatingText } from '../../ui/FloatingText';
 
 export class Goblin extends NPCSchema {
     constructor(config = {}) {
@@ -36,7 +35,7 @@ export class Goblin extends NPCSchema {
         this.animations = {};
         this.currentAnimation = null;
         this.mixer = null;
-        this.isDead = false; // Add flag to track death state
+        this.isDead = false;
         this.animationStates = {
             idle: 'CharacterArmature|Idle',
             walk: 'CharacterArmature|Walk',
@@ -46,13 +45,12 @@ export class Goblin extends NPCSchema {
             hitReact: 'CharacterArmature|HitReact'
         };
 
-        // Initialize health bar and floating text
+        // Initialize health bar
         this.healthBar = new HealthBar();
         this.isInCombat = false;
-        this.floatingTexts = [];
-        this.lastDamageTime = 0;
-        this.damageTextCooldown = 0.5; // Minimum time between damage texts
-        this.combatTimeout = null; // For tracking when to exit combat state
+        this.combatTimeout = null;
+        this.lastHitTime = 0;
+        this.hitReactionDuration = 0.5; // Duration of hit reaction in seconds
 
         // Set position and rotation from config
         if (config.position) {
@@ -66,45 +64,31 @@ export class Goblin extends NPCSchema {
     async init(scene) {
         try {
             console.log('Goblin: Starting initialization');
-            
             // Create the model first
-            console.log('Goblin: Calling createModel()');
             const mesh = await this.createModel();
-            console.log('Goblin: createModel() returned:', mesh);
             
             if (!mesh) {
                 console.error('Goblin: Failed to create model');
                 return null;
             }
             
+            console.log('Goblin: Model created, adding to scene');
             // Add the mesh to the scene
-            console.log('Goblin: Adding mesh to scene');
             scene.add(mesh);
-            console.log('Goblin: Mesh added to scene');
             
             // Create and add health bar sprite
             if (this.healthBar) {
-                console.log('Goblin: Creating health bar sprite');
                 const healthBarSprite = this.healthBar.getSprite();
                 if (healthBarSprite) {
-                    console.log('Goblin: Adding health bar sprite to scene');
                     scene.add(healthBarSprite);
-                    console.log('Goblin: Health bar sprite added to scene');
-                } else {
-                    console.error('Goblin: Failed to create health bar sprite');
+                    console.log('Goblin: Health bar added to scene');
                 }
             }
             
             // Set initial position
             if (this.position) {
-                console.log('Goblin: Setting initial position:', this.position);
                 this.setPosition(this.position);
-            }
-            
-            // Set initial rotation
-            if (this.rotation) {
-                console.log('Goblin: Setting initial rotation:', this.rotation);
-                this.setRotation(this.rotation);
+                console.log('Goblin: Position set to:', this.position);
             }
             
             console.log('Goblin: Initialization complete');
@@ -117,71 +101,52 @@ export class Goblin extends NPCSchema {
 
     async createModel() {
         try {
-            console.log('Goblin: Loading model from:', this.modelPath);
+            console.log('Loading goblin model from:', this.modelPath);
             const loader = new GLTFLoader();
             
             // Add loading manager to track progress
             loader.manager.onProgress = (url, loaded, total) => {
-                console.log(`Goblin: Loading progress: ${(loaded / total * 100).toFixed(2)}%`);
+                console.log(`Loading progress: ${(loaded / total * 100).toFixed(2)}%`);
             };
             
             loader.manager.onError = (url) => {
-                console.error('Goblin: Error loading:', url);
+                console.error('Error loading model:', url);
             };
             
-            console.log('Goblin: Starting model load...');
             let gltf;
             try {
                 gltf = await loader.loadAsync(this.modelPath);
-                console.log('Goblin: Raw GLTF response:', gltf);
+                console.log('Successfully loaded goblin model');
             } catch (loadError) {
-                console.error('Goblin: Error during model loading:', loadError);
-                // Create a fallback model
-                console.log('Goblin: Creating fallback model');
+                console.error('Failed to load goblin model, creating fallback:', loadError);
                 const fallbackMesh = this.createFallbackModel();
-                console.log('Goblin: Fallback model created:', fallbackMesh);
                 return fallbackMesh;
             }
             
             if (!gltf) {
-                console.error('Goblin: GLTF model is undefined after loading');
+                console.log('No GLTF data, creating fallback model');
                 const fallbackMesh = this.createFallbackModel();
-                console.log('Goblin: Fallback model created:', fallbackMesh);
                 return fallbackMesh;
             }
             
             if (!gltf.scene) {
-                console.error('Goblin: GLTF scene is undefined');
+                console.log('No scene in GLTF, creating fallback model');
                 const fallbackMesh = this.createFallbackModel();
-                console.log('Goblin: Fallback model created:', fallbackMesh);
                 return fallbackMesh;
             }
             
             if (!gltf.scene.children || gltf.scene.children.length === 0) {
-                console.error('Goblin: GLTF scene has no children');
+                console.log('No meshes in GLTF scene, creating fallback model');
                 const fallbackMesh = this.createFallbackModel();
-                console.log('Goblin: Fallback model created:', fallbackMesh);
                 return fallbackMesh;
             }
             
             // Get the main mesh
             this.mesh = gltf.scene.children[0];
-            console.log('Goblin: Main mesh:', this.mesh);
+            console.log('Successfully created goblin mesh');
             
             // Set up animations
             this.mixer = new THREE.AnimationMixer(this.mesh);
-            
-            // Log available animations with more detail
-            console.log('Goblin: Available animations:', gltf.animations?.length || 0);
-            if (gltf.animations) {
-                gltf.animations.forEach((clip, index) => {
-                    console.log(`Goblin: Animation ${index}:`, {
-                        name: clip.name,
-                        duration: clip.duration,
-                        tracks: clip.tracks.length
-                    });
-                });
-            }
             
             // Store all animations
             if (gltf.animations) {
@@ -189,19 +154,20 @@ export class Goblin extends NPCSchema {
                     const action = this.mixer.clipAction(clip);
                     this.animations[clip.name] = action;
                 });
+                console.log('Loaded animations:', Object.keys(this.animations));
             }
 
             // Set default animation (idle)
             if (this.animations[this.animationStates.idle]) {
                 this.currentAnimation = this.animations[this.animationStates.idle];
                 this.currentAnimation.play();
-                console.log('Goblin: Playing idle animation');
+                console.log('Playing idle animation');
             } else {
-                console.warn('Goblin: No idle animation found, using first available animation');
                 const firstAnimation = Object.values(this.animations)[0];
                 if (firstAnimation) {
                     this.currentAnimation = firstAnimation;
                     this.currentAnimation.play();
+                    console.log('Playing first available animation');
                 }
             }
 
@@ -214,37 +180,50 @@ export class Goblin extends NPCSchema {
             });
 
             // Apply initial transformations
-            console.log('Goblin: Setting initial transformations');
             this.mesh.position.copy(this.position);
             this.mesh.rotation.copy(this.rotation);
             this.mesh.scale.set(this.scale, this.scale, this.scale);
-            console.log('Goblin: Initial transformations applied');
 
-            console.log('Goblin: Model loaded successfully');
             return this.mesh;
         } catch (error) {
-            console.error('Goblin: Error loading model:', error);
+            console.error('Error in createModel:', error);
             const fallbackMesh = this.createFallbackModel();
-            console.log('Goblin: Fallback model created:', fallbackMesh);
             return fallbackMesh;
         }
     }
 
     createFallbackModel() {
-        console.log('Goblin: Creating fallback model');
-        // Create a simple humanoid shape as fallback
-        const geometry = new THREE.BoxGeometry(1, 2, 1);
-        const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        return mesh;
+        console.log('Creating fallback goblin model');
+        // Create a simple cylinder for the body
+        const bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 8);
+        const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+        
+        // Create a sphere for the head
+        const headGeometry = new THREE.SphereGeometry(0.4, 8, 8);
+        const headMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+        const head = new THREE.Mesh(headGeometry, headMaterial);
+        head.position.y = 1.2;
+        
+        // Create a group to hold both parts
+        const group = new THREE.Group();
+        group.add(body);
+        group.add(head);
+        
+        // Enable shadows
+        group.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+        
+        return group;
     }
 
     // Add method to add health bar to scene when game is ready
     addHealthBarToScene() {
         if (this.pendingHealthBarSprite && window.game && window.game.scene) {
-            console.log('Goblin: Adding pending health bar to scene');
             window.game.scene.add(this.pendingHealthBarSprite);
             this.pendingHealthBarSprite = null;
         }
@@ -260,7 +239,16 @@ export class Goblin extends NPCSchema {
     playAnimation(name, fadeIn = 0.5, fadeOut = 0.5) {
         const animationName = this.animationStates[name];
         if (!animationName || !this.animations[animationName]) {
-            console.warn(`Animation "${name}" not found. Available animations:`, Object.keys(this.animations));
+            return;
+        }
+
+        // Don't interrupt death animation
+        if (this.isDead && name !== 'death') {
+            return;
+        }
+
+        // Don't play hit reaction if we're dead
+        if (this.isDead && name === 'hitReact') {
             return;
         }
 
@@ -268,7 +256,6 @@ export class Goblin extends NPCSchema {
             this.currentAnimation.fadeOut(fadeOut);
             this.currentAnimation = this.animations[animationName];
             this.currentAnimation.reset().fadeIn(fadeIn).play();
-            console.log(`Playing animation: ${animationName}`);
         }
     }
 
@@ -310,46 +297,33 @@ export class Goblin extends NPCSchema {
             }
         }
         
-        // Update floating texts
-        this.floatingTexts = this.floatingTexts.filter(text => {
-            if (text && text.mesh) {
-                text.update(deltaTime);
-            }
-            return !text.isComplete;
-        });
-
-        // Update combat state
-        if (this.isInCombat) {
-            // Clear existing timeout
-            if (this.combatTimeout) {
-                clearTimeout(this.combatTimeout);
-            }
-            
-            // Set new timeout to exit combat state after 5 seconds of no damage
-            this.combatTimeout = setTimeout(() => {
-                this.isInCombat = false;
-                if (this.healthBar) {
-                    this.healthBar.hide();
-                }
-                console.log('Goblin: Exiting combat state');
-            }, 5000);
+        // If not in combat and not playing idle, play idle animation
+        if (!this.isInCombat && this.currentAnimation !== this.animations[this.animationStates.idle]) {
+            this.playAnimation('idle');
         }
-        
-  
     }
 
-    // Override takeDamage to update health bar and show floating text
+    // Override takeDamage to update health bar and show hit reaction
     takeDamage(amount) {
-        console.log(`Goblin: Taking damage: ${amount}`);
         const actualDamage = super.takeDamage(amount);
-        console.log(`Goblin: Actual damage after defense: ${actualDamage}`);
         
         if (actualDamage > 0) {
-            console.log('Goblin: Damage taken, entering combat state');
             this.isInCombat = true;
             this.healthBar.update(this.health, this.maxHealth);
-            console.log(`Goblin: Health updated to ${this.health}/${this.maxHealth}`);
-            this.playAnimation('hitReact');
+
+            // Play hit reaction animation
+            const currentTime = performance.now() / 1000;
+            if (currentTime - this.lastHitTime >= this.hitReactionDuration) {
+                this.playAnimation('hitReact');
+                this.lastHitTime = currentTime;
+
+                // Return to idle after hit reaction
+                setTimeout(() => {
+                    if (!this.isDead) {
+                        this.playAnimation('idle');
+                    }
+                }, this.hitReactionDuration * 1000);
+            }
 
             // Clear any existing combat timeout
             if (this.combatTimeout) {
@@ -358,39 +332,16 @@ export class Goblin extends NPCSchema {
 
             // Set a new timeout to exit combat state after 5 seconds of no damage
             this.combatTimeout = setTimeout(() => {
-                console.log('Goblin: No damage for 5 seconds, exiting combat state');
                 this.isInCombat = false;
+                if (!this.isDead) {
+                    this.playAnimation('idle');
+                }
             }, 5000);
-
-            // Show floating damage text
-            const currentTime = performance.now() / 1000;
-            if (currentTime - this.lastDamageTime >= this.damageTextCooldown) {
-                console.log('Goblin: Showing floating damage text');
-                this.showDamageText(actualDamage);
-                this.lastDamageTime = currentTime;
-            }
-        } else {
-            console.log('Goblin: No damage taken, staying out of combat');
         }
         return actualDamage;
     }
 
-    // Add method to show floating damage text
-    showDamageText(amount) {
-        if (!window.game || !window.game.scene) {
-            console.warn('Goblin: Cannot show damage text - game scene not available');
-            return;
-        }
-
-        console.log(`Goblin: Creating floating text for damage: ${amount}`);
-        const position = this.mesh.position.clone();
-        const text = new FloatingText(amount.toString(), position);
-        this.floatingTexts.push(text);
-        window.game.scene.add(text.getSprite());
-        console.log('Goblin: Floating text added to scene');
-    }
-
-    // Override die to clean up floating texts and combat state
+    // Override die to handle death animation
     die() {
         if (this.isDead) return;
         
@@ -408,25 +359,27 @@ export class Goblin extends NPCSchema {
             this.healthBar.hide();
         }
         
-        // Remove all floating texts
-        if (this.floatingTexts) {
-            this.floatingTexts.forEach(text => {
-                if (text && text.mesh) {
-                    text.remove();
-                }
-            });
-            this.floatingTexts = [];
+        // Notify wave manager if it exists
+        if (this.waveManager) {
+            this.waveManager.handleGoblinDeath(this);
         }
         
-        // Play death animation if available
-        if (this.animations[this.animationStates.death]) {
-            console.log('Goblin: Playing death animation');
-            this.currentAnimation = this.animations[this.animationStates.death];
-            this.currentAnimation.play();
+        // Play death animation
+        const deathAnimationName = 'CharacterArmature|Death';
+        
+        if (this.animations[deathAnimationName]) {
+            // Stop any current animation
+            if (this.currentAnimation) {
+                this.currentAnimation.fadeOut(0.2);
+            }
             
-            // Remove the goblin from the scene after the animation completes
+            // Set up death animation
+            this.currentAnimation = this.animations[deathAnimationName];
+            this.currentAnimation.reset();
+            this.currentAnimation.setLoop(THREE.LoopOnce, 0);
             this.currentAnimation.clampWhenFinished = true;
-            this.currentAnimation.loop = false;
+            this.currentAnimation.fadeIn(0.2);
+            this.currentAnimation.play();
             
             // Get the animation duration
             const deathDuration = this.currentAnimation.getClip().duration;
@@ -434,7 +387,6 @@ export class Goblin extends NPCSchema {
             // Remove the goblin after the animation completes
             setTimeout(() => {
                 if (this.mesh && this.mesh.parent) {
-                    console.log('Goblin: Removing from scene');
                     this.mesh.parent.remove(this.mesh);
                 }
                 if (this.healthBar && this.healthBar.sprite && this.healthBar.sprite.parent) {
@@ -444,12 +396,19 @@ export class Goblin extends NPCSchema {
         } else {
             // If no death animation, remove immediately
             if (this.mesh && this.mesh.parent) {
-                console.log('Goblin: No death animation, removing immediately');
                 this.mesh.parent.remove(this.mesh);
             }
             if (this.healthBar && this.healthBar.sprite && this.healthBar.sprite.parent) {
                 this.healthBar.sprite.parent.remove(this.healthBar.sprite);
             }
+        }
+    }
+
+    setPosition(position) {
+        this.position.copy(position);
+        if (this.mesh) {
+            this.mesh.position.copy(position);
+            console.log('Goblin: Mesh position set to:', position);
         }
     }
 } 

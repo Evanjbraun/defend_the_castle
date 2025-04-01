@@ -31,6 +31,11 @@ export class SwordAnimation {
             this.lastCheckTime = 0;
             // Store current rotation as start
             this.startRotation.copy(this.weapon.rotation);
+            
+            // Play slash sound if available
+            if (this.weapon && this.weapon.slashSound) {
+                this.weapon.slashSound.play();
+            }
         }
     }
 
@@ -56,7 +61,6 @@ export class SwordAnimation {
                 if (swingProgress > 0.1 && swingProgress < 0.9) {
                     const currentTime = performance.now();
                     if (currentTime - this.lastCheckTime >= this.checkInterval * 1000) {
-                        console.log('SwordAnimation: Checking for enemies during swing, progress:', swingProgress.toFixed(2));
                         this.onSwingCallback();
                         this.lastCheckTime = currentTime;
                     }

@@ -2,6 +2,7 @@ import { ItemSchema } from '../ItemSchema';
 import { SwordAnimation } from './weaponAnimations/SwordAnimation';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { AudioLoader } from 'three';
 
 export class WoodenSword extends ItemSchema {
     constructor() {
@@ -32,7 +33,7 @@ export class WoodenSword extends ItemSchema {
             // Stats
             stats: {
                 // Offensive stats
-                attackPower: 6,
+                attackPower: 9,
                 attackSpeed: 1.2, // Slightly faster than average
                 criticalChance: 0.02, // 2% crit chance
                 criticalDamage: 1.5, // 150% crit damage
@@ -65,6 +66,11 @@ export class WoodenSword extends ItemSchema {
         
         // Initialize model as a Promise
         this.model = this.createModel();
+
+        // Initialize audio
+        this.audioLoader = new AudioLoader();
+        this.slashSound = null;
+        this.loadSlashSound();
     }
 
     // Special method for training weapons
@@ -80,6 +86,21 @@ export class WoodenSword extends ItemSchema {
     // Initialize the weapon with its 3D model
     initModel(model) {
         this.model = model;
+    }
+
+    // Load the slash sound
+    loadSlashSound() {
+        this.audioLoader.load('/music/slash.mp3', (buffer) => {
+            this.slashSound = new THREE.Audio(new THREE.AudioListener());
+            this.slashSound.setBuffer(buffer);
+            this.slashSound.setVolume(0.5);
+            this.slashSound.setLoop(false);
+            
+            // Add error handling
+            this.slashSound.onError = (error) => {
+                console.error('Error playing slash sound:', error);
+            };
+        });
     }
 
     // Override onAttack to handle combat
@@ -335,6 +356,11 @@ export class WoodenSword extends ItemSchema {
         if (this.equippedModel && this.attackAnimation) {
             this.attackAnimation.startAnimation();
             this.checkForEnemiesInRange();
+            
+            // Play slash sound if loaded
+            if (this.slashSound) {
+                this.slashSound.play();
+            }
         }
     }
 } 
