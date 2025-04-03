@@ -116,13 +116,27 @@ export class AudioSystem {
      * @param {number} volume - Volume level (0 to 1)
      */
     playSound(name, volume = 0.5) {
+        console.log('Attempting to play sound:', { name, volume });
+        
         const sound = this.sounds.get(name);
         if (sound) {
             sound.volume = volume;
             sound.currentTime = 0;
-            sound.play().catch(error => {
+            sound.play().then(() => {
+                console.log('Sound played successfully:', name);
+            }).catch(error => {
                 console.error('Error playing sound:', error);
+                // If the error is due to user interaction, try to resume the audio context
+                if (error.name === 'NotAllowedError') {
+                    this.audioContext.resume().then(() => {
+                        console.log('AudioContext resumed, retrying sound play');
+                        sound.play().catch(e => console.error('Still failed to play sound:', e));
+                    });
+                }
             });
+        } else {
+            console.error('Sound not found:', name);
+            console.log('Available sounds:', Array.from(this.sounds.keys()));
         }
     }
 

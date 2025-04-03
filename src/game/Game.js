@@ -194,26 +194,36 @@ export class Game {
         
         // Update wave manager
         if (this.waveManager) {
-         
             this.waveManager.update(deltaTime);
         }
-
+        
         // Update castle health bar
         if (this.castleHealthBar) {
             this.castleHealthBar.update();
         }
 
-        // Update trees
-        if (this.treeManager) {
-            this.treeManager.update(deltaTime);
+        // Update animations
+        if (this.mixer) {
+            this.mixer.update(deltaTime);
         }
+
+        // Call render after all updates are done
+        this.render();
     }
 
     render() {
         if (!this.isInitialized) return;
         
-        // Render the scene
-        this.renderer.render(this.scene.getScene(), this.player.getCamera());
+        // Get the actual THREE.Scene instance
+        const threeScene = this.scene.getScene();
+        
+        // Use the player's camera for rendering
+        const camera = this.player.getCamera();
+        
+        // Only render if we have both scene and camera
+        if (threeScene && camera) {
+            this.renderer.render(threeScene, camera);
+        }
         
         // Update menu if needed
         if (this.gameMenu) {

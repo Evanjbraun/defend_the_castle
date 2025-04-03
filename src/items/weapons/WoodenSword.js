@@ -148,16 +148,12 @@ export class WoodenSword extends ItemSchema {
 
         // Get the game instance from the player
         const game = player.game;
-        if (!game) {
+        if (!game || !game.waveManager) {
             return [];
         }
         
-        const goblin = game.goblin;
-        if (goblin && !goblin.isDead) {
-            return [goblin];
-        }
-        
-        return [];
+        // Return all active goblins that aren't dead
+        return game.waveManager.activeGoblins.filter(goblin => !goblin.isDead);
     }
 
     getDistanceToEnemy(enemy) {

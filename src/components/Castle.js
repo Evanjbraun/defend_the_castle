@@ -43,17 +43,25 @@ export class Castle {
     }
 
     takeDamage(amount) {
-        if (this.isDestroyed) return 0;
+        if (this.isDestroyed) {
+            console.log('Castle is already destroyed, cannot take damage');
+            return 0;
+        }
         
+        const oldHealth = this.health;
         this.health = Math.max(0, this.health - amount);
+        const actualDamage = oldHealth - this.health;
+        
+        console.log(`Castle taking ${actualDamage} damage! Health: ${oldHealth} -> ${this.health}`);
         
         if (this.health <= 0) {
             this.health = 0;
             this.isDestroyed = true;
+            console.log('Castle has been destroyed!');
             this.onDestroyed();
         }
         
-        return amount;
+        return actualDamage;
     }
 
     heal(amount) {

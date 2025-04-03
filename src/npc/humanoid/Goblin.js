@@ -30,6 +30,11 @@ export class Goblin extends NPCSchema {
             }
         });
 
+        // Combat properties
+        this.attackCooldown = config.attackCooldown || 1.0;
+        this.lastAttackTime = config.lastAttackTime || 0;
+        this.currentState = config.currentState || 'idle';
+
         // Goblin-specific properties
         this.modelPath = '/models/npc/goblin.glb';
         this.animations = {};
