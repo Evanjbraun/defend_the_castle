@@ -10,6 +10,7 @@ import { AudioSystem } from '../systems/audio/AudioSystem';
 import { TreeManager } from '../entities/environment/TreeManager';
 import { WaveManager } from '../systems/wave/WaveManager';
 import { CastleHealthBar } from '../ui/CastleHealthBar';
+import { WaveInfo } from '../ui/WaveInfo';
 
 export class Game {
     constructor() {
@@ -33,6 +34,7 @@ export class Game {
         this.treeManager = null;
         this.waveManager = null;
         this.castleHealthBar = null;
+        this.waveInfo = null;
         
         // Initialize audio system
         this.audioSystem = new AudioSystem();
@@ -109,6 +111,9 @@ export class Game {
             console.log('Game: Creating wave manager');
             this.waveManager = new WaveManager(this.scene.getScene(), this.castle);
             console.log('Game: Wave manager created');
+
+            // Initialize wave info UI
+            this.waveInfo = new WaveInfo(this.waveManager);
 
             // Initialize player
             console.log('Game: Creating player');
@@ -195,6 +200,15 @@ export class Game {
         // Update wave manager
         if (this.waveManager) {
             this.waveManager.update(deltaTime);
+            
+            // Update all goblin animations
+            if (this.waveManager.goblins) {
+                for (const goblin of this.waveManager.goblins) {
+                    if (goblin.mixer) {
+                        goblin.mixer.update(deltaTime);
+                    }
+                }
+            }
         }
         
         // Update castle health bar
@@ -202,9 +216,9 @@ export class Game {
             this.castleHealthBar.update();
         }
 
-        // Update animations
-        if (this.mixer) {
-            this.mixer.update(deltaTime);
+        // Update wave info
+        if (this.waveInfo) {
+            this.waveInfo.update();
         }
 
         // Call render after all updates are done

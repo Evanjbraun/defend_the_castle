@@ -36,12 +36,21 @@ export class HealthBar {
         // Clear the canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw background (red)
-        this.ctx.fillStyle = '#ff0000';
+        // Draw background (dark red)
+        this.ctx.fillStyle = '#8B0000';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw health (green)
-        this.ctx.fillStyle = '#00ff00';
+        // Draw health with color gradient based on health percentage
+        let healthColor;
+        if (healthPercent > 0.6) {
+            healthColor = '#4CAF50'; // Green for high health
+        } else if (healthPercent > 0.3) {
+            healthColor = '#FFA500'; // Orange for medium health
+        } else {
+            healthColor = '#FF0000'; // Red for low health
+        }
+        
+        this.ctx.fillStyle = healthColor;
         this.ctx.fillRect(0, 0, this.canvas.width * healthPercent, this.canvas.height);
 
         // Draw border
@@ -73,8 +82,6 @@ export class HealthBar {
      */
     updatePosition(position) {
         this.sprite.position.copy(position);
-        // Position slightly above the entity
-        this.sprite.position.y += 0.1;
     }
 
     /**

@@ -7,7 +7,7 @@ export class WaveManager {
     constructor(scene, castle) {
         this.scene = scene;
         this.castle = castle;
-        this.currentWave = 0;
+        this.currentWave = 1;
         this.maxWaves = 10;
         this.activeGoblins = [];
         this.isWaveInProgress = false;
@@ -18,20 +18,19 @@ export class WaveManager {
         
         // Load goblin scream sound
         this.audioSystem.loadSound('goblinScream', '/music/scream.mp3');
-        console.log('Loaded goblin scream sound');
         
         // Wave configuration
         this.waveConfigs = [
             { count: 3, goblinHealth: 40, goblinDamage: 5 },
             { count: 5, goblinHealth: 45, goblinDamage: 6 },
-            { count: 7, goblinHealth: 50, goblinDamage: 7 },
-            { count: 10, goblinHealth: 55, goblinDamage: 8 },
-            { count: 12, goblinHealth: 60, goblinDamage: 9 },
-            { count: 15, goblinHealth: 65, goblinDamage: 10 },
-            { count: 18, goblinHealth: 70, goblinDamage: 11 },
-            { count: 20, goblinHealth: 75, goblinDamage: 12 },
-            { count: 25, goblinHealth: 80, goblinDamage: 13 },
-            { count: 30, goblinHealth: 85, goblinDamage: 14 }
+            { count: 7, goblinHealth: 50, goblinDamage: 6 },
+            { count: 10, goblinHealth: 55, goblinDamage: 6 },
+            { count: 12, goblinHealth: 60, goblinDamage: 6 },
+            { count: 15, goblinHealth: 65, goblinDamage: 7 },
+            { count: 18, goblinHealth: 70, goblinDamage: 7 },
+            { count: 20, goblinHealth: 75, goblinDamage: 7 },
+            { count: 25, goblinHealth: 80, goblinDamage: 8 },
+            { count: 30, goblinHealth: 85, goblinDamage: 8 }
         ];
     }
 
@@ -48,34 +47,20 @@ export class WaveManager {
     }
 
     async startWave() {
-        if (this.currentWave >= this.maxWaves || this.isWaveInProgress) {
-            console.log('Wave not started - maxWaves reached or wave in progress', {
-                currentWave: this.currentWave,
-                maxWaves: this.maxWaves,
-                isWaveInProgress: this.isWaveInProgress
-            });
+        if (this.currentWave > this.maxWaves || this.isWaveInProgress) {
             return;
         }
 
         this.isWaveInProgress = true;
-        this.currentWave++;
-        const config = this.waveConfigs[this.currentWave - 1];
-        console.log('Starting wave', {
-            waveNumber: this.currentWave,
-            goblinCount: config.count,
-            goblinHealth: config.goblinHealth,
-            goblinDamage: config.goblinDamage
-        });
-
+        
+        // Display the current wave number
         this.waveAnnouncement.showWave(this.currentWave);
+        
+        // Get the current wave configuration
+        const config = this.waveConfigs[this.currentWave - 1];
 
         for (let i = 0; i < config.count; i++) {
             const spawnPoint = this.spawnPoints[Math.floor(Math.random() * this.spawnPoints.length)];
-            console.log('Spawning goblin', {
-                spawnPoint: spawnPoint,
-                goblinNumber: i + 1,
-                totalGoblins: config.count
-            });
             
             const goblin = new Goblin({
                 position: spawnPoint,
@@ -97,10 +82,8 @@ export class WaveManager {
 
             const mesh = await goblin.init(this.scene);
             if (!mesh) {
-                console.error('Failed to initialize goblin mesh');
                 continue;
             }
-            console.log('Goblin initialized successfully');
             
             goblin.waveManager = this;
             goblin.playAnimation('walk', 0.2, 0.2);
@@ -110,14 +93,24 @@ export class WaveManager {
             // Stagger initial screams by adding an offset based on goblin number
             const initialOffset = (i / config.count) * 10; // Spread first screams over 10 seconds
             goblin.nextScreamDelay = this.getRandomScreamDelay() + initialOffset;
-            console.log('Goblin initialized with scream timing:', {
-                goblinId: goblin.id,
-                initialDelay: goblin.nextScreamDelay.toFixed(2),
-                offset: initialOffset.toFixed(2)
-            });
+            
+            // Ensure health bar is properly initialized and added to scene
+            if (goblin.healthBar) {
+                const healthBarSprite = goblin.healthBar.getSprite();
+                if (healthBarSprite && !healthBarSprite.parent) {
+                    this.scene.add(healthBarSprite);
+                    
+                    // Initialize health bar with current health
+                    goblin.healthBar.update(goblin.health, goblin.maxHealth);
+                    
+                    // Position the health bar above the goblin's head
+                    const position = goblin.mesh.position.clone();
+                    position.y += goblin.height + 1.0;
+                    goblin.healthBar.updatePosition(position);
+                }
+            }
             
             this.activeGoblins.push(goblin);
-            console.log('Active goblins count:', this.activeGoblins.length);
         }
     }
 
@@ -126,14 +119,28 @@ export class WaveManager {
     }
 
     handleGoblinDeath(goblin) {
+        // Remove from active goblins
         const index = this.activeGoblins.indexOf(goblin);
         if (index > -1) {
             this.activeGoblins.splice(index, 1);
+            
+            // Remove the goblin from the scene after a short delay
+            setTimeout(() => {
+                if (goblin.mesh && goblin.mesh.parent) {
+                    goblin.mesh.parent.remove(goblin.mesh);
+                }
+            }, 5000); // 5 second delay to allow death animation to play
         }
-
+        
+        // Check if wave is complete
         if (this.activeGoblins.length === 0) {
             this.isWaveInProgress = false;
-            if (this.currentWave < this.maxWaves) {
+            
+            // Increment wave counter when wave is complete
+            this.currentWave++;
+            
+            // Start next wave after delay if not the last wave
+            if (this.currentWave <= this.maxWaves) {
                 setTimeout(() => this.startWave(), 5000);
             }
         }
@@ -152,7 +159,21 @@ export class WaveManager {
                 if (goblin.mixer) {
                     goblin.mixer.update(deltaTime);
                 }
+                
+                // Update goblin behavior
                 this.updateGoblinBehavior(goblin, deltaTime);
+                
+                // Ensure health bar is updated
+                if (goblin.healthBar && goblin.health < goblin.maxHealth) {
+                    goblin.healthBar.update(goblin.health, goblin.maxHealth);
+                    
+                    // Update health bar position
+                    if (goblin.mesh) {
+                        const position = goblin.mesh.position.clone();
+                        position.y += goblin.height + 1.0;
+                        goblin.healthBar.updatePosition(position);
+                    }
+                }
             }
         });
     }
@@ -246,39 +267,17 @@ export class WaveManager {
                 if (player && player.mesh) {
                     const distanceToPlayer = goblin.mesh.position.distanceTo(player.mesh.position);
                     
-                    console.log('Goblin considering scream:', {
-                        goblinId: goblin.id,
-                        distanceToPlayer: distanceToPlayer.toFixed(2),
-                        timeSinceLastScream: timeSinceLastScream.toFixed(2),
-                        nextScreamDelay: goblin.nextScreamDelay.toFixed(2)
-                    });
-                    
                     // Only play scream if within audible range (120 units)
                     if (distanceToPlayer <= 120) {
                         // Calculate volume based on distance (1.0 at 0 distance, 0.05 at 115-120 distance)
                         const volume = Math.max(0.05, 1 - (distanceToPlayer / 120));
-                        console.log('Goblin screaming:', {
-                            goblinId: goblin.id,
-                            volume: volume.toFixed(2),
-                            distanceToPlayer: distanceToPlayer.toFixed(2)
-                        });
                         this.audioSystem.playSound('goblinScream', volume);
-                    } else {
-                        console.log('Goblin too far to be heard:', {
-                            goblinId: goblin.id,
-                            distanceToPlayer: distanceToPlayer.toFixed(2)
-                        });
                     }
                 }
                 
                 // Set up next scream with randomization specific to this goblin
                 goblin.lastScreamTime = currentTime;
                 goblin.nextScreamDelay = this.getRandomScreamDelay();
-                console.log('Next scream scheduled:', {
-                    goblinId: goblin.id,
-                    nextDelay: goblin.nextScreamDelay.toFixed(2),
-                    nextScreamIn: goblin.nextScreamDelay.toFixed(2) + ' seconds'
-                });
             }
         }
     }

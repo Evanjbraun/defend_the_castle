@@ -73,7 +73,9 @@ export class PlayerSchema extends NPCSchema {
         const bodyMaterial = new THREE.MeshStandardMaterial({
             color: 0x00ff00, // Temporary color
             roughness: 0.7,
-            metalness: 0.2
+            metalness: 0.2,
+            transparent: true,
+            opacity: 0 // Set opacity to 0 to make the player model invisible
         });
 
         // Head
