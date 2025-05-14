@@ -1,7 +1,8 @@
 
+![Banner](./public/splash.jpg)
 # Defend The Castle
 
-A third-person action tower defense game built with Three.js where players control a character defending their castle against waves of enemies.
+A third-person action defense game built with Three.js where players control a character defending their castle against waves of enemies. This project was mostly a fun side project I wanted to work on to toy around with newer technologies.
 
 ## Features
 
@@ -35,6 +36,10 @@ src/
   └── main.js               # Entry point
 ```
 
+## Setup
+ - npm ci
+ - npm run start
+ - npm run teardown
 
 ## License
 
